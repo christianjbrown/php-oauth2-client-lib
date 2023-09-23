@@ -1,0 +1,29 @@
+{
+    "name": "christianjbrown/oauth2-client",
+    "require": {
+        "php": "^8.2",
+        "christianjbrown/user-friendly-exception": "dev-main",
+        "christianjbrown/json-api-client": "dev-main",
+        "psr/http-client": "^1.0",
+        "christianjbrown/key-value-store": "dev-main"
+    },
+    "autoload": {
+        "psr-4": {
+            "ChristianBrown\\Oauth2Client\\": "src/"
+        }
+    },
+    "repositories": [
+        {
+            "type": "github",
+            "url": "git@github.com:christianjbrown/user-friendly-exception.git"
+        },
+        {
+            "type": "github",
+            "url": "git@github.com:christianjbrown/json-api-client.git"
+        },
+        {
+            "type": "github",
+            "url": "git@github.com:christianjbrown/key-value-store.git"
+        }
+    ]
+}
