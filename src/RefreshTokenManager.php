@@ -12,7 +12,7 @@ final class RefreshTokenManager extends AbstractTokenManager implements RefreshT
 {
     private KeyValueStoreInterface $refreshTokenKeyValueStore;
 
-    public function __construct(string $url, string $friendlyName, ?KeyValueStoreInterface $refreshTokenKeyValueStore = null, ?KeyValueStoreInterface $accessTokenKeyValueStore = null)
+    public function __construct(string $url, string $friendlyName, KeyValueStoreInterface $refreshTokenKeyValueStore, ?KeyValueStoreInterface $accessTokenKeyValueStore = null)
     {
         parent::__construct($url, self::REQUEST_VALUE_GRANT_TYPE_REFRESH_TOKEN, $friendlyName, $accessTokenKeyValueStore);
         $this->refreshTokenKeyValueStore = $refreshTokenKeyValueStore;
@@ -20,10 +20,12 @@ final class RefreshTokenManager extends AbstractTokenManager implements RefreshT
 
     public function getAccessToken(string $clientId, bool $forceNew = false): TokenInterface
     {
-        $existingAccessTokenValue = $this->accessTokenKeyValueStore->getValue();
-        $existingAccessTokenTtl = $this->accessTokenKeyValueStore->getTtl();
-        if (!$forceNew && !empty($existingAccessTokenValue) && $existingAccessTokenTtl) {
-            return new Token('access_token', $existingAccessTokenValue, $existingAccessTokenTtl);
+        if ($this->accessTokenKeyValueStore instanceof KeyValueStoreInterface) {
+            $existingAccessTokenValue = $this->accessTokenKeyValueStore->getValue();
+            $existingAccessTokenTtl = $this->accessTokenKeyValueStore->getTtl();
+            if (!$forceNew && !empty($existingAccessTokenValue) && $existingAccessTokenTtl) {
+                return new Token('access_token', $existingAccessTokenValue, $existingAccessTokenTtl);
+            }
         }
 
         $headers = [self::HEADER_KEY_CONTENT_TYPE => self::HEADER_VALUE_CONTENT_TYPE_FORM];
