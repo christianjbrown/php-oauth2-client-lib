@@ -13,8 +13,6 @@ use function sprintf;
 
 final class ClientCredentialsTokenManager extends AbstractTokenManager implements ClientCredentialsTokenManagerInterface
 {
-    public const BASIC_AUTH_VALUE_SPRINTF = 'Basic %s';
-
     public function __construct(string $url, string $friendlyName, ?KeyValueStoreInterface $accessTokenKeyValueStore = null)
     {
         parent::__construct($url, self::REQUEST_VALUE_GRANT_TYPE_CLIENT_CREDENTIALS, $friendlyName, $accessTokenKeyValueStore);
