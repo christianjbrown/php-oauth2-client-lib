@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace ChristianBrown\OAuth2Client\Model;
 
-final class Token implements TokenInterface
+final class AccessToken implements AccessTokenInterface
 {
     private string $accessToken;
     private int $expiresIn;
     private ?string $refreshToken;
     private ?string $scope;
-    private TokenType $tokenType;
+    private AccessTokenType $tokenType;
 
-    public function __construct(TokenType $tokenType, string $accessToken, int $expiresIn, ?string $refreshToken = null, ?string $scope = null)
+    public function __construct(string $accessToken, int $expiresIn, ?string $refreshToken = null, ?string $scope = null, AccessTokenType $tokenType = AccessTokenType::BEARER)
     {
-        $this->tokenType = $tokenType;
         $this->accessToken = $accessToken;
         $this->expiresIn = $expiresIn;
         $this->refreshToken = $refreshToken;
         $this->scope = $scope;
+        $this->tokenType = $tokenType;
     }
 
     public function getAccessToken(): string
@@ -41,7 +41,7 @@ final class Token implements TokenInterface
         return $this->scope;
     }
 
-    public function getTokenType(): TokenType
+    public function getTokenType(): AccessTokenType
     {
         return $this->tokenType;
     }

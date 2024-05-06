@@ -8,6 +8,7 @@ use ChristianBrown\OAuth2Client\Model\Exception\BadResponsePayloadFieldException
 use ChristianBrown\OAuth2Client\Model\Exception\BadResponsePayloadFieldExceptionInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+
 use function var_export;
 
 #[CoversClass(BadResponsePayloadFieldException::class)]

@@ -6,6 +6,7 @@ namespace ChristianBrown\OAuth2Client\Model\Exception;
 
 use RuntimeException;
 use Throwable;
+
 use function var_export;
 
 final class BadResponsePayloadFieldException extends RuntimeException implements BadResponsePayloadFieldExceptionInterface
