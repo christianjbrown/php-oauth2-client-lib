@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace ChristianBrown\OAuth2Client\Transformer;
 
-use ChristianBrown\OAuth2Client\Model\TokenInterface;
+use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
 
-interface TokenTransformerInterface
+interface AccessTokenTransformerInterface
 {
     public const KEY_ACCESS_TOKEN = 'access_token';
     public const KEY_EXPIRES_IN = 'expires_in';
@@ -14,5 +14,5 @@ interface TokenTransformerInterface
     public const KEY_SCOPE = 'scope';
     public const KEY_TOKEN_TYPE = 'token_type';
 
-    public function transform(array $data): TokenInterface;
+    public function transform(array $data): AccessTokenInterface;
 }

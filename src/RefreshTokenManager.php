@@ -7,22 +7,21 @@ namespace ChristianBrown\OAuth2Client;
 use ChristianBrown\JsonApiClient\JsonApiRequestExceptionInterface;
 use ChristianBrown\JsonApiClient\JsonApiRequestSenderInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
+use ChristianBrown\OAuth2Client\Model\AccessToken;
+use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
 use ChristianBrown\OAuth2Client\Model\Exception\RequestException;
 use ChristianBrown\OAuth2Client\Model\GrantType;
-use ChristianBrown\OAuth2Client\Model\Token;
-use ChristianBrown\OAuth2Client\Model\TokenInterface;
-use ChristianBrown\OAuth2Client\Model\TokenType;
-use ChristianBrown\OAuth2Client\Transformer\TokenTransformerInterface;
+use ChristianBrown\OAuth2Client\Transformer\AccessTokenTransformerInterface;
 
 final class RefreshTokenManager implements RefreshTokenManagerInterface
 {
     private KeyValueStoreInterface $accessTokenKeyValueStore;
     private JsonApiRequestSenderInterface $jsonEndpointRequestSender;
     private KeyValueStoreInterface $refreshTokenKeyValueStore;
-    private TokenTransformerInterface $tokenTransformer;
+    private AccessTokenTransformerInterface $tokenTransformer;
     private string $url;
 
-    public function __construct(JsonApiRequestSenderInterface $jsonApiRequestSender, KeyValueStoreInterface $accessTokenKeyValueStore, KeyValueStoreInterface $refreshTokenKeyValueStore, TokenTransformerInterface $tokenTransformer, string $url)
+    public function __construct(JsonApiRequestSenderInterface $jsonApiRequestSender, KeyValueStoreInterface $accessTokenKeyValueStore, KeyValueStoreInterface $refreshTokenKeyValueStore, AccessTokenTransformerInterface $tokenTransformer, string $url)
     {
         $this->jsonEndpointRequestSender = $jsonApiRequestSender;
         $this->tokenTransformer = $tokenTransformer;
@@ -31,7 +30,7 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
         $this->accessTokenKeyValueStore = $accessTokenKeyValueStore;
     }
 
-    public function getAccessToken(string $clientId, bool $forceNew = false): TokenInterface
+    public function getAccessToken(string $clientId, bool $forceNew = false): AccessTokenInterface
     {
         $time = time();
 
@@ -39,7 +38,7 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
         $existingAccessTokenTtl = $this->accessTokenKeyValueStore->getTtl();
 
         if (!$forceNew && !empty($existingAccessTokenValue) && $existingAccessTokenTtl > $time) {
-            return new Token(TokenType::ACCESS, $existingAccessTokenValue, $existingAccessTokenTtl);
+            return new AccessToken($existingAccessTokenValue, $existingAccessTokenTtl);
         }
 
         $headers = [self::HEADER_KEY_CONTENT_TYPE => self::HEADER_VALUE_CONTENT_TYPE_FORM];

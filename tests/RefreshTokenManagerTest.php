@@ -7,15 +7,15 @@ namespace ChristianBrown\OAuth2Client\Tests;
 use ChristianBrown\JsonApiClient\JsonApiRequestExceptionInterface;
 use ChristianBrown\JsonApiClient\JsonApiRequestSenderInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
+use ChristianBrown\OAuth2Client\Model\AccessToken;
+use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
+use ChristianBrown\OAuth2Client\Model\AccessTokenType;
 use ChristianBrown\OAuth2Client\Model\Exception\RequestException;
 use ChristianBrown\OAuth2Client\Model\Exception\RequestExceptionInterface;
 use ChristianBrown\OAuth2Client\Model\GrantType;
-use ChristianBrown\OAuth2Client\Model\Token;
-use ChristianBrown\OAuth2Client\Model\TokenInterface;
-use ChristianBrown\OAuth2Client\Model\TokenType;
 use ChristianBrown\OAuth2Client\RefreshTokenManager;
 use ChristianBrown\OAuth2Client\TokenManagerInterface;
-use ChristianBrown\OAuth2Client\Transformer\TokenTransformerInterface;
+use ChristianBrown\OAuth2Client\Transformer\AccessTokenTransformerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\MockObject\Exception;
@@ -23,7 +23,7 @@ use PHPUnit\Framework\TestCase;
 
 use function time;
 
-#[CoversClass(Token::class)]
+#[CoversClass(AccessToken::class)]
 #[CoversClass(RequestException::class)]
 #[CoversClass(RefreshTokenManager::class)]
 final class RefreshTokenManagerTest extends TestCase
@@ -51,7 +51,7 @@ final class RefreshTokenManagerTest extends TestCase
             ->with('test-url', [], $headers, $bodyData)
             ->willReturn(['test-new-token-data']);
 
-        $accessToken = $this->createMock(TokenInterface::class);
+        $accessToken = $this->createMock(AccessTokenInterface::class);
         $accessToken->method('getAccessToken')
             ->willReturn('test-new-access-token');
         $accessToken->method('getExpiresIn')
@@ -59,7 +59,7 @@ final class RefreshTokenManagerTest extends TestCase
         $accessToken->method('getRefreshToken')
             ->willReturn('test-new-refresh-token');
 
-        $tokenTransformer = $this->createMock(TokenTransformerInterface::class);
+        $tokenTransformer = $this->createMock(AccessTokenTransformerInterface::class);
         $tokenTransformer->method('transform')
             ->with(['test-new-token-data'])
             ->willReturn($accessToken);
@@ -99,7 +99,7 @@ final class RefreshTokenManagerTest extends TestCase
         $jsonApiRequestSender->expects(self::never())
             ->method('postData');
 
-        $tokenTransformer = $this->createMock(TokenTransformerInterface::class);
+        $tokenTransformer = $this->createMock(AccessTokenTransformerInterface::class);
         $tokenTransformer->expects(self::never())
             ->method('transform');
 
@@ -121,7 +121,7 @@ final class RefreshTokenManagerTest extends TestCase
         $manager = new RefreshTokenManager($jsonApiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
         $actual = $manager->getAccessToken('test-client-id', false);
 
-        self::assertSame(TokenType::ACCESS, $actual->getTokenType());
+        self::assertSame(AccessTokenType::BEARER, $actual->getTokenType());
         self::assertNull($actual->getRefreshToken());
         // @todo Assumes the test can run within 42 seconds, ideally need to mock time()
         self::assertSame($actual->getExpiresIn(), $time + 42);
@@ -152,7 +152,7 @@ final class RefreshTokenManagerTest extends TestCase
             ->with('test-url', [], $headers, $bodyData)
             ->willThrowException($jsonApiRequestException);
 
-        $tokenTransformer = $this->createMock(TokenTransformerInterface::class);
+        $tokenTransformer = $this->createMock(AccessTokenTransformerInterface::class);
 
         $refreshTokenKeyValueStore = $this->createMock(KeyValueStoreInterface::class);
         $refreshTokenKeyValueStore->method('getValue')

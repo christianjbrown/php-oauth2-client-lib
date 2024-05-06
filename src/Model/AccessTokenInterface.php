@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ChristianBrown\OAuth2Client\Model;
 
-interface TokenInterface
+interface AccessTokenInterface
 {
     public function getAccessToken(): string;
 
@@ -14,5 +14,5 @@ interface TokenInterface
 
     public function getScope(): ?string;
 
-    public function getTokenType(): TokenType;
+    public function getTokenType(): AccessTokenType;
 }
