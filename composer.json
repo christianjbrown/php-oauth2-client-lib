@@ -1,29 +1,53 @@
 {
-    "name": "christianjbrown/oauth2-client",
+    "name": "christianjbrown/php-oauth2-client-lib",
     "require": {
         "php": "^8.2",
-        "christianjbrown/user-friendly-exception": "dev-main",
-        "christianjbrown/json-api-client": "dev-main",
-        "psr/http-client": "^1.0",
-        "christianjbrown/key-value-store": "dev-main"
+        "christianjbrown/php-json-api-client-lib": "^1.0",
+        "christianjbrown/php-key-value-store-lib": "^1.0",
+        "psr/http-client": "^1.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0.8",
+        "christianjbrown/php-code-quality-scripts": "dev-main"
     },
     "autoload": {
         "psr-4": {
-            "ChristianBrown\\Oauth2Client\\": "src/"
+            "ChristianBrown\\OAuth2Client\\": "src/",
+            "ChristianBrown\\OAuth2Client\\Tests\\": "tests/"
         }
     },
     "repositories": [
         {
             "type": "github",
-            "url": "git@github.com:christianjbrown/user-friendly-exception.git"
+            "url": "git@github.com:christianjbrown/php-code-quality-scripts.git"
         },
         {
             "type": "github",
-            "url": "git@github.com:christianjbrown/json-api-client.git"
+            "url": "git@github.com:christianjbrown/php-json-api-client-lib.git"
         },
         {
             "type": "github",
-            "url": "git@github.com:christianjbrown/key-value-store.git"
+            "url": "git@github.com:christianjbrown/php-key-value-store-lib.git"
         }
-    ]
+    ],
+    "config": {
+        "bin-dir": "bin"
+    },
+    "scripts": {
+        "test": [
+            "clear && XDEBUG_MODE=coverage ./bin/phpunit && open ./.phpunit.cache/code-coverage-html/index.html"
+        ],
+        "check-style": [
+            "clear && ./bin/php-cs ./src ./tests"
+        ],
+        "check-style-diff": [
+            "clear && ./bin/php-cs-diff"
+        ],
+        "fix-style": [
+            "clear && ./bin/php-cs-fix ./src ./tests"
+        ],
+        "fix-style-diff": [
+            "clear && ./bin/php-cs-fix-diff"
+        ]
+    }
 }

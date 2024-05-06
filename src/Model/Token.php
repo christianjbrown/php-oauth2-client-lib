@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace ChristianBrown\Oauth2Client\Model;
+namespace ChristianBrown\OAuth2Client\Model;
 
 final class Token implements TokenInterface
 {
@@ -10,9 +10,9 @@ final class Token implements TokenInterface
     private int $expiresIn;
     private ?string $refreshToken;
     private ?string $scope;
-    private string $tokenType;
+    private TokenType $tokenType;
 
-    public function __construct(string $tokenType, string $accessToken, int $expiresIn, ?string $refreshToken = null, ?string $scope = null)
+    public function __construct(TokenType $tokenType, string $accessToken, int $expiresIn, ?string $refreshToken = null, ?string $scope = null)
     {
         $this->tokenType = $tokenType;
         $this->accessToken = $accessToken;
@@ -41,7 +41,7 @@ final class Token implements TokenInterface
         return $this->scope;
     }
 
-    public function getTokenType(): string
+    public function getTokenType(): TokenType
     {
         return $this->tokenType;
     }
