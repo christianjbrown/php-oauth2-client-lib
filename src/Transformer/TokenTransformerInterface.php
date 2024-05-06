@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace ChristianBrown\Oauth2Client\Transformer;
+namespace ChristianBrown\OAuth2Client\Transformer;
 
-use ChristianBrown\Oauth2Client\Model\TokenInterface;
+use ChristianBrown\OAuth2Client\Model\TokenInterface;
 
 interface TokenTransformerInterface
 {

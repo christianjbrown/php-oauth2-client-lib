@@ -2,45 +2,66 @@
 
 declare(strict_types=1);
 
-namespace ChristianBrown\Oauth2Client;
+namespace ChristianBrown\OAuth2Client;
 
+use ChristianBrown\JsonApiClient\JsonApiRequestExceptionInterface;
+use ChristianBrown\JsonApiClient\JsonApiRequestSenderInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
-use ChristianBrown\Oauth2Client\Model\Token;
-use ChristianBrown\Oauth2Client\Model\TokenInterface;
+use ChristianBrown\OAuth2Client\Model\Exception\RequestException;
+use ChristianBrown\OAuth2Client\Model\GrantType;
+use ChristianBrown\OAuth2Client\Model\Token;
+use ChristianBrown\OAuth2Client\Model\TokenInterface;
+use ChristianBrown\OAuth2Client\Model\TokenType;
+use ChristianBrown\OAuth2Client\Transformer\TokenTransformerInterface;
 
-final class RefreshTokenManager extends AbstractTokenManager implements RefreshTokenManagerInterface
+final class RefreshTokenManager implements RefreshTokenManagerInterface
 {
+    private KeyValueStoreInterface $accessTokenKeyValueStore;
+    private JsonApiRequestSenderInterface $jsonEndpointRequestSender;
     private KeyValueStoreInterface $refreshTokenKeyValueStore;
+    private TokenTransformerInterface $tokenTransformer;
+    private string $url;
 
-    public function __construct(string $url, string $friendlyName, ?KeyValueStoreInterface $refreshTokenKeyValueStore = null, ?KeyValueStoreInterface $accessTokenKeyValueStore = null)
+    public function __construct(JsonApiRequestSenderInterface $jsonApiRequestSender, KeyValueStoreInterface $accessTokenKeyValueStore, KeyValueStoreInterface $refreshTokenKeyValueStore, TokenTransformerInterface $tokenTransformer, string $url)
     {
-        parent::__construct($url, self::REQUEST_VALUE_GRANT_TYPE_REFRESH_TOKEN, $friendlyName, $accessTokenKeyValueStore);
+        $this->jsonEndpointRequestSender = $jsonApiRequestSender;
+        $this->tokenTransformer = $tokenTransformer;
+        $this->url = $url;
         $this->refreshTokenKeyValueStore = $refreshTokenKeyValueStore;
+        $this->accessTokenKeyValueStore = $accessTokenKeyValueStore;
     }
 
     public function getAccessToken(string $clientId, bool $forceNew = false): TokenInterface
     {
+        $time = time();
+
         $existingAccessTokenValue = $this->accessTokenKeyValueStore->getValue();
         $existingAccessTokenTtl = $this->accessTokenKeyValueStore->getTtl();
-        if (!$forceNew && !empty($existingAccessTokenValue) && $existingAccessTokenTtl) {
-            return new Token('access_token', $existingAccessTokenValue, $existingAccessTokenTtl);
+
+        if (!$forceNew && !empty($existingAccessTokenValue) && $existingAccessTokenTtl > $time) {
+            return new Token(TokenType::ACCESS, $existingAccessTokenValue, $existingAccessTokenTtl);
         }
 
         $headers = [self::HEADER_KEY_CONTENT_TYPE => self::HEADER_VALUE_CONTENT_TYPE_FORM];
-        $refreshToken = $this->refreshTokenKeyValueStore->getValue();
+        $refreshTokenValue = $this->refreshTokenKeyValueStore->getValue();
         $bodyData = [
-            self::REQUEST_KEY_GRANT_TYPE => self::REQUEST_VALUE_GRANT_TYPE_REFRESH_TOKEN,
+            self::REQUEST_KEY_GRANT_TYPE => GrantType::REFRESH_TOKEN->value,
             self::REQUEST_KEY_CLIENT_ID => $clientId,
-            self::REQUEST_KEY_REFRESH_TOKEN => $refreshToken,
+            self::REQUEST_KEY_REFRESH_TOKEN => $refreshTokenValue,
         ];
 
-        $data = $this->jsonEndpointRequestSender->postData($this->friendlyName, $this->url, [], $headers, $bodyData);
+        try {
+            $accessTokenData = $this->jsonEndpointRequestSender->postData($this->url, [], $headers, $bodyData);
+        } catch (JsonApiRequestExceptionInterface $e) {
+            // @todo Could probably handle 401/403 more specifically
+            throw new RequestException($e);
+        }
 
-        $token = $this->tokenTransformer->transform($data);
+        $accessToken = $this->tokenTransformer->transform($accessTokenData);
 
-        $this->refreshTokenKeyValueStore->setValue($token->getRefreshToken());
-        $this->accessTokenKeyValueStore->setValue($token->getAccessToken(), $token->getExpiresIn());
+        $this->refreshTokenKeyValueStore->setValue($accessToken->getRefreshToken());
+        $this->accessTokenKeyValueStore->setValue($accessToken->getAccessToken(), $time + $accessToken->getExpiresIn());
 
-        return $token;
+        return $accessToken;
     }
 }

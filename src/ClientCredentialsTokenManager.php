@@ -2,29 +2,46 @@
 
 declare(strict_types=1);
 
-namespace ChristianBrown\Oauth2Client;
+namespace ChristianBrown\OAuth2Client;
 
+use ChristianBrown\JsonApiClient\JsonApiRequestExceptionInterface;
+use ChristianBrown\JsonApiClient\JsonApiRequestSenderInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
-use ChristianBrown\Oauth2Client\Model\Token;
-use ChristianBrown\Oauth2Client\Model\TokenInterface;
+use ChristianBrown\OAuth2Client\Model\Exception\RequestException;
+use ChristianBrown\OAuth2Client\Model\GrantType;
+use ChristianBrown\OAuth2Client\Model\Token;
+use ChristianBrown\OAuth2Client\Model\TokenInterface;
+
+use ChristianBrown\OAuth2Client\Model\TokenType;
+use ChristianBrown\OAuth2Client\Transformer\TokenTransformerInterface;
 
 use function base64_encode;
 use function sprintf;
 
-final class ClientCredentialsTokenManager extends AbstractTokenManager implements ClientCredentialsTokenManagerInterface
+final class ClientCredentialsTokenManager implements ClientCredentialsTokenManagerInterface
 {
-    public function __construct(string $url, string $friendlyName, ?KeyValueStoreInterface $accessTokenKeyValueStore = null)
+    private KeyValueStoreInterface $accessTokenKeyValueStore;
+    private JsonApiRequestSenderInterface $jsonEndpointRequestSender;
+    private TokenTransformerInterface $tokenTransformer;
+    private string $url;
+
+    public function __construct(JsonApiRequestSenderInterface $jsonApiRequestSender, KeyValueStoreInterface $accessTokenKeyValueStore, TokenTransformerInterface $tokenTransformer, string $url)
     {
-        parent::__construct($url, self::REQUEST_VALUE_GRANT_TYPE_CLIENT_CREDENTIALS, $friendlyName, $accessTokenKeyValueStore);
+        $this->jsonEndpointRequestSender = $jsonApiRequestSender;
+        $this->accessTokenKeyValueStore = $accessTokenKeyValueStore;
+        $this->tokenTransformer = $tokenTransformer;
+        $this->url = $url;
     }
 
     public function getAccessTokenFromBasicAuth(string $basicAuthValue, ?string $scope = null, ?string $clientId = null, bool $forceNew = false): TokenInterface
     {
+        $time = time();
+
         $existingAccessTokenValue = $this->accessTokenKeyValueStore->getValue();
         $existingAccessTokenTtl = $this->accessTokenKeyValueStore->getTtl();
 
-        if (!$forceNew && !empty($existingAccessTokenValue) && $existingAccessTokenTtl) {
-            return new Token('access_token', $existingAccessTokenValue, $existingAccessTokenTtl);
+        if (!$forceNew && !empty($existingAccessTokenValue) && $existingAccessTokenTtl > $time) {
+            return new Token(TokenType::ACCESS, $existingAccessTokenValue, $existingAccessTokenTtl);
         }
 
         $headers = [
@@ -32,7 +49,7 @@ final class ClientCredentialsTokenManager extends AbstractTokenManager implement
             self::HEADER_KEY_AUTHORIZATION => sprintf(self::BASIC_AUTH_VALUE_SPRINTF, base64_encode($basicAuthValue)),
         ];
         $bodyData = [
-            self::REQUEST_KEY_GRANT_TYPE => $this->grantType,
+            self::REQUEST_KEY_GRANT_TYPE => GrantType::CLIENT_CREDENTIALS->value,
         ];
         if (!empty($scope)) {
             $bodyData[self::REQUEST_KEY_SCOPE] = $scope;
@@ -41,12 +58,17 @@ final class ClientCredentialsTokenManager extends AbstractTokenManager implement
             $bodyData[self::REQUEST_KEY_CLIENT_ID] = $clientId;
         }
 
-        $data = $this->jsonEndpointRequestSender->postData($this->friendlyName, $this->url, [], $headers, $bodyData);
+        try {
+            $data = $this->jsonEndpointRequestSender->postData($this->url, [], $headers, $bodyData);
+        } catch (JsonApiRequestExceptionInterface $e) {
+            // @todo Could probably handle 401/403 more specifically
+            throw new RequestException($e);
+        }
 
-        $token = $this->tokenTransformer->transform($data);
+        $accessToken = $this->tokenTransformer->transform($data);
 
-        $this->accessTokenKeyValueStore->setValue($token->getAccessToken(), $token->getExpiresIn());
+        $this->accessTokenKeyValueStore->setValue($accessToken->getAccessToken(), $time + $accessToken->getExpiresIn());
 
-        return $token;
+        return $accessToken;
     }
 }

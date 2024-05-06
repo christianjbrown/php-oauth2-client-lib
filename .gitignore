@@ -1,5 +1,13 @@
 *.DS_Store
+*.iml
+.DS_Store
+.idea
 .idea/
 .local.env
+.phpunit.cache
+.phpunit.cache/
+bin
+bin/
 composer.lock
+vendor
 vendor/
