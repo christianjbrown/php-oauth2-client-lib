@@ -6,6 +6,7 @@ namespace ChristianBrown\OAuth2Client\Model\Exception;
 
 use RuntimeException;
 use Throwable;
+use function var_export;
 
 final class BadResponsePayloadFieldException extends RuntimeException implements BadResponsePayloadFieldExceptionInterface
 {
@@ -17,7 +18,7 @@ final class BadResponsePayloadFieldException extends RuntimeException implements
         $this->field = $field;
         $this->data = $data;
 
-        $message = sprintf(self::MESSAGE_SPRINTF, $field);
+        $message = sprintf(self::MESSAGE_SPRINTF, $field, var_export($data, true));
         parent::__construct($message, 0, $previous);
     }
 
