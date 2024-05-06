@@ -8,6 +8,7 @@ use ChristianBrown\OAuth2Client\Model\Exception\BadResponsePayloadFieldException
 use ChristianBrown\OAuth2Client\Model\Exception\BadResponsePayloadFieldExceptionInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use function var_export;
 
 #[CoversClass(BadResponsePayloadFieldException::class)]
 final class BadResponsePayloadFieldExceptionTest extends TestCase
@@ -17,6 +18,6 @@ final class BadResponsePayloadFieldExceptionTest extends TestCase
         $exception = new BadResponsePayloadFieldException('test-field', ['test-data']);
         self::assertSame('test-field', $exception->getField());
         self::assertSame(['test-data'], $exception->getData());
-        self::assertSame(sprintf(BadResponsePayloadFieldExceptionInterface::MESSAGE_SPRINTF, 'test-field'), $exception->getMessage());
+        self::assertSame(sprintf(BadResponsePayloadFieldExceptionInterface::MESSAGE_SPRINTF, 'test-field', var_export(['test-data'], true)), $exception->getMessage());
     }
 }
