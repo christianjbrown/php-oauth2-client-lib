@@ -8,7 +8,7 @@ use ChristianBrown\JsonApiClient\JsonApiRequestExceptionInterface;
 
 interface RequestExceptionInterface extends ExceptionInterface
 {
-    public const MESSAGE = 'OAuth request failed';
+    public const string MESSAGE = 'OAuth request failed';
 
     public function getRequestException(): JsonApiRequestExceptionInterface;
 }

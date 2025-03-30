@@ -22,10 +22,6 @@ use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\TestCase;
 
-use function base64_encode;
-use function sprintf;
-use function time;
-
 #[CoversClass(AccessToken::class)]
 #[CoversClass(RequestException::class)]
 #[CoversClass(ClientCredentialsTokenManager::class)]
