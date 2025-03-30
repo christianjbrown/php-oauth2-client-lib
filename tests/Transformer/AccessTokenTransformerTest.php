@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(AccessTokenTransformer::class)]
 final class AccessTokenTransformerTest extends TestCase
 {
-    private const GOOD_RESPONSE_PAYLOAD = [
+    private const array GOOD_RESPONSE_PAYLOAD = [
         // Required
         AccessTokenTransformerInterface::KEY_ACCESS_TOKEN => 'test-access-token',
         AccessTokenTransformerInterface::KEY_TOKEN_TYPE => AccessTokenType::BEARER->value,
