@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace ChristianBrown\OAuth2Client\Tests\Model\Exception;
 
-use ChristianBrown\JsonApiClient\JsonApiRequestExceptionInterface;
+use ChristianBrown\ApiClient\Exception\Request\ConnectException;
+use ChristianBrown\ApiClient\Exception\Request\ConnectExceptionInterface;
 use ChristianBrown\OAuth2Client\Model\Exception\RequestException;
-use ChristianBrown\OAuth2Client\Model\Exception\RequestExceptionInterface;
+use GuzzleHttp\Exception\ConnectException as GuzzleConnectException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\UriInterface;
 
 #[CoversClass(RequestException::class)]
 final class RequestExceptionTest extends TestCase
@@ -20,30 +22,20 @@ final class RequestExceptionTest extends TestCase
      */
     public function test(): void
     {
-        $requestException = $this->createMock(JsonApiRequestExceptionInterface::class);
-        $exception = new RequestException($requestException);
-        self::assertSame($requestException, $exception->getRequestException());
-        self::assertSame($requestException, $exception->getPrevious());
+        $requestUri = $this->createMock(UriInterface::class);
+        $requestUri->method('__toString')
+            ->willReturn('test-uri');
+        $request = $this->createMock(RequestInterface::class);
+        $request->method('getUri')
+            ->willReturn($requestUri);
+        $previous = $this->createMock(GuzzleConnectException::class);
+
+        $apiClientException = new ConnectException($request, $previous);
+
+        $exception = new RequestException($apiClientException);
+        self::assertSame($apiClientException, $exception->getRequestException());
+        self::assertSame($apiClientException, $exception->getPrevious());
         self::assertSame(0, $exception->getCode());
-        self::assertSame(RequestExceptionInterface::MESSAGE, $exception->getMessage());
-    }
-
-    /**
-     * @throws Exception
-     */
-    public function testWithResponse(): void
-    {
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')
-            ->willReturn(42);
-
-        $requestException = $this->createMock(JsonApiRequestExceptionInterface::class);
-        $requestException->method('getResponse')
-            ->willReturn($response);
-        $exception = new RequestException($requestException);
-        self::assertSame($requestException, $exception->getRequestException());
-        self::assertSame($requestException, $exception->getPrevious());
-        self::assertSame(42, $exception->getCode());
-        self::assertSame(RequestExceptionInterface::MESSAGE, $exception->getMessage());
+        self::assertSame(sprintf(ConnectExceptionInterface::MESSAGE, 'test-uri'), $exception->getMessage());
     }
 }

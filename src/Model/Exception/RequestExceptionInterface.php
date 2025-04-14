@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace ChristianBrown\OAuth2Client\Model\Exception;
 
-use ChristianBrown\JsonApiClient\JsonApiRequestExceptionInterface;
+use ChristianBrown\ApiClient\Exception\ExceptionInterface as ApiClientExceptionInterface;
 
 interface RequestExceptionInterface extends ExceptionInterface
 {
-    public const string MESSAGE = 'OAuth request failed';
-
-    public function getRequestException(): JsonApiRequestExceptionInterface;
+    public function getRequestException(): ApiClientExceptionInterface;
 }

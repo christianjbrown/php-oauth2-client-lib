@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace ChristianBrown\OAuth2Client;
 
-use ChristianBrown\JsonApiClient\JsonApiRequestExceptionInterface;
-use ChristianBrown\JsonApiClient\JsonApiRequestSenderInterface;
+use ChristianBrown\ApiClient\ApiRequestSenderInterface;
+use ChristianBrown\ApiClient\Exception\ExceptionInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
 use ChristianBrown\OAuth2Client\Model\AccessToken;
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
@@ -19,13 +19,13 @@ use function sprintf;
 final class ClientCredentialsTokenManager implements ClientCredentialsTokenManagerInterface
 {
     private KeyValueStoreInterface $accessTokenKeyValueStore;
-    private JsonApiRequestSenderInterface $jsonEndpointRequestSender;
+    private ApiRequestSenderInterface $apiRequestSender;
     private AccessTokenTransformerInterface $tokenTransformer;
     private string $url;
 
-    public function __construct(JsonApiRequestSenderInterface $jsonApiRequestSender, KeyValueStoreInterface $accessTokenKeyValueStore, AccessTokenTransformerInterface $tokenTransformer, string $url)
+    public function __construct(ApiRequestSenderInterface $jsonApiRequestSender, KeyValueStoreInterface $accessTokenKeyValueStore, AccessTokenTransformerInterface $tokenTransformer, string $url)
     {
-        $this->jsonEndpointRequestSender = $jsonApiRequestSender;
+        $this->apiRequestSender = $jsonApiRequestSender;
         $this->accessTokenKeyValueStore = $accessTokenKeyValueStore;
         $this->tokenTransformer = $tokenTransformer;
         $this->url = $url;
@@ -57,8 +57,8 @@ final class ClientCredentialsTokenManager implements ClientCredentialsTokenManag
         }
 
         try {
-            $data = $this->jsonEndpointRequestSender->postData($this->url, [], $headers, $bodyData);
-        } catch (JsonApiRequestExceptionInterface $e) {
+            $data = $this->apiRequestSender->postData($this->url, [], $headers, $bodyData);
+        } catch (ExceptionInterface $e) {
             // @todo Could probably handle 401/403 more specifically
             throw new RequestException($e);
         }

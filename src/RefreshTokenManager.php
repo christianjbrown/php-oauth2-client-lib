@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace ChristianBrown\OAuth2Client;
 
-use ChristianBrown\JsonApiClient\JsonApiRequestExceptionInterface;
-use ChristianBrown\JsonApiClient\JsonApiRequestSenderInterface;
+use ChristianBrown\ApiClient\ApiRequestSenderInterface;
+use ChristianBrown\ApiClient\Exception\ExceptionInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
 use ChristianBrown\OAuth2Client\Model\AccessToken;
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
@@ -16,14 +16,14 @@ use ChristianBrown\OAuth2Client\Transformer\AccessTokenTransformerInterface;
 final class RefreshTokenManager implements RefreshTokenManagerInterface
 {
     private KeyValueStoreInterface $accessTokenKeyValueStore;
-    private JsonApiRequestSenderInterface $jsonEndpointRequestSender;
+    private ApiRequestSenderInterface $apiRequestSender;
     private KeyValueStoreInterface $refreshTokenKeyValueStore;
     private AccessTokenTransformerInterface $tokenTransformer;
     private string $url;
 
-    public function __construct(JsonApiRequestSenderInterface $jsonApiRequestSender, KeyValueStoreInterface $accessTokenKeyValueStore, KeyValueStoreInterface $refreshTokenKeyValueStore, AccessTokenTransformerInterface $tokenTransformer, string $url)
+    public function __construct(ApiRequestSenderInterface $apiRequestSender, KeyValueStoreInterface $accessTokenKeyValueStore, KeyValueStoreInterface $refreshTokenKeyValueStore, AccessTokenTransformerInterface $tokenTransformer, string $url)
     {
-        $this->jsonEndpointRequestSender = $jsonApiRequestSender;
+        $this->apiRequestSender = $apiRequestSender;
         $this->tokenTransformer = $tokenTransformer;
         $this->url = $url;
         $this->refreshTokenKeyValueStore = $refreshTokenKeyValueStore;
@@ -50,8 +50,8 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
         ];
 
         try {
-            $accessTokenData = $this->jsonEndpointRequestSender->postData($this->url, [], $headers, $bodyData);
-        } catch (JsonApiRequestExceptionInterface $e) {
+            $accessTokenData = $this->apiRequestSender->postData($this->url, [], $headers, $bodyData);
+        } catch (ExceptionInterface $e) {
             // @todo Could probably handle 401/403 more specifically
             throw new RequestException($e);
         }

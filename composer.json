@@ -2,7 +2,7 @@
     "name": "christianjbrown/php-oauth2-client-lib",
     "require": {
         "php": "^8.3",
-        "christianjbrown/php-json-api-client-lib": "dev-main",
+        "christianjbrown/php-api-client-lib": "dev-main",
         "christianjbrown/php-key-value-store-lib": "dev-main",
         "psr/http-client": "^1.0"
     },
@@ -17,37 +17,16 @@
         }
     },
     "repositories": [
-        {
-            "type": "github",
-            "url": "git@github.com:christianjbrown/php-code-quality-scripts.git"
-        },
-        {
-            "type": "github",
-            "url": "git@github.com:christianjbrown/php-json-api-client-lib.git"
-        },
-        {
-            "type": "github",
-            "url": "git@github.com:christianjbrown/php-key-value-store-lib.git"
-        }
+        {"type": "github", "url": "git@github.com:christianjbrown/php-api-client-lib.git"},
+        {"type": "github", "url": "git@github.com:christianjbrown/php-code-quality-scripts.git"},
+        {"type": "github", "url": "git@github.com:christianjbrown/php-key-value-store-lib.git"}
     ],
     "config": {
         "bin-dir": "bin"
     },
     "scripts": {
-        "test": [
-            "clear && XDEBUG_MODE=coverage ./bin/phpunit -d memory_limit=512M && open ./.phpunit.cache/code-coverage-html/index.html"
-        ],
-        "check-style": [
-            "clear && ./bin/php-cs ./src ./tests"
-        ],
-        "check-style-diff": [
-            "clear && ./bin/php-cs-diff"
-        ],
-        "fix-style": [
-            "clear && ./bin/php-cs-fix ./src ./tests"
-        ],
-        "fix-style-diff": [
-            "clear && ./bin/php-cs-fix-diff"
-        ]
+        "check-style": ["clear && ./bin/php-cs ./src ./tests"],
+        "fix-style": ["clear && ./bin/php-cs-fix ./src ./tests"],
+        "test": ["clear && XDEBUG_MODE=coverage ./bin/phpunit -d memory_limit=512M && open ./.phpunit.cache/code-coverage-html/index.html"]
     }
 }
