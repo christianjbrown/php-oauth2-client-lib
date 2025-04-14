@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace ChristianBrown\OAuth2Client\Tests;
 
-use ChristianBrown\JsonApiClient\JsonApiRequestExceptionInterface;
-use ChristianBrown\JsonApiClient\JsonApiRequestSenderInterface;
+use ChristianBrown\ApiClient\ApiRequestSenderInterface;
+use ChristianBrown\ApiClient\Exception\ExceptionInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
 use ChristianBrown\OAuth2Client\Model\AccessToken;
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
@@ -46,8 +46,8 @@ final class RefreshTokenManagerTest extends TestCase
             TokenManagerInterface::REQUEST_KEY_REFRESH_TOKEN => 'test-existing-refresh-token-value',
         ];
 
-        $jsonApiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
-        $jsonApiRequestSender->method('postData')
+        $apiRequestSender = $this->createMock(ApiRequestSenderInterface::class);
+        $apiRequestSender->method('postData')
             ->with('test-url', [], $headers, $bodyData)
             ->willReturn(['test-new-token-data']);
 
@@ -82,7 +82,7 @@ final class RefreshTokenManagerTest extends TestCase
             // @todo Assumes the test can run in the same second.., need to mock time()
             ->with('test-new-access-token', $time + 42);
 
-        $manager = new RefreshTokenManager($jsonApiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
+        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
         $actual = $manager->getAccessToken('test-client-id', $forceNew);
 
         self::assertSame($accessToken, $actual);
@@ -95,8 +95,8 @@ final class RefreshTokenManagerTest extends TestCase
     {
         $time = time();
 
-        $jsonApiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
-        $jsonApiRequestSender->expects(self::never())
+        $apiRequestSender = $this->createMock(ApiRequestSenderInterface::class);
+        $apiRequestSender->expects(self::never())
             ->method('postData');
 
         $tokenTransformer = $this->createMock(AccessTokenTransformerInterface::class);
@@ -118,7 +118,7 @@ final class RefreshTokenManagerTest extends TestCase
         $accessTokenKeyValueStore->expects(self::never())
             ->method('setValue');
 
-        $manager = new RefreshTokenManager($jsonApiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
+        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
         $actual = $manager->getAccessToken('test-client-id', false);
 
         self::assertSame(AccessTokenType::BEARER, $actual->getTokenType());
@@ -145,12 +145,12 @@ final class RefreshTokenManagerTest extends TestCase
             TokenManagerInterface::REQUEST_KEY_REFRESH_TOKEN => 'test-existing-refresh-token-value',
         ];
 
-        $jsonApiRequestException = $this->createMock(JsonApiRequestExceptionInterface::class);
+        $apiRequestException = $this->createMock(ExceptionInterface::class);
 
-        $jsonApiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
-        $jsonApiRequestSender->method('postData')
+        $apiRequestSender = $this->createMock(ApiRequestSenderInterface::class);
+        $apiRequestSender->method('postData')
             ->with('test-url', [], $headers, $bodyData)
-            ->willThrowException($jsonApiRequestException);
+            ->willThrowException($apiRequestException);
 
         $tokenTransformer = $this->createMock(AccessTokenTransformerInterface::class);
 
@@ -164,7 +164,7 @@ final class RefreshTokenManagerTest extends TestCase
         $accessTokenKeyValueStore->method('getTtl')
             ->willReturn($existingTokenTtl);
 
-        $manager = new RefreshTokenManager($jsonApiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
+        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
 
         $exceptionThrown = false;
 
@@ -173,7 +173,7 @@ final class RefreshTokenManagerTest extends TestCase
         } catch (RequestExceptionInterface $e) {
             // We don't want to use expectException*() here because we want to assert the fields passed to it
             $exceptionThrown = true;
-            self::assertSame($jsonApiRequestException, $e->getRequestException());
+            self::assertSame($apiRequestException, $e->getRequestException());
         }
         self::assertTrue($exceptionThrown);
     }
