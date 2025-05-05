@@ -57,7 +57,7 @@ final class ClientCredentialsTokenManager implements ClientCredentialsTokenManag
         }
 
         try {
-            $data = $this->apiRequestSender->post($this->url, [], $headers, $bodyData);
+            $data = $this->apiRequestSender->postForm($this->url, [], $headers, $bodyData);
         } catch (ExceptionInterface $e) {
             // @todo Could probably handle 401/403 more specifically
             throw new RequestException($e);

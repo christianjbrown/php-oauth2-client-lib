@@ -49,7 +49,7 @@ final class ClientCredentialsTokenManagerTest extends TestCase
         ];
 
         $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
-        $apiRequestSender->method('post')
+        $apiRequestSender->method('postForm')
             ->with('test-url', [], $headers, $bodyData)
             ->willReturn(['test-new-token-data']);
 
@@ -90,7 +90,7 @@ final class ClientCredentialsTokenManagerTest extends TestCase
 
         $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
         $apiRequestSender->expects(self::never())
-            ->method('post');
+            ->method('postForm');
 
         $tokenTransformer = $this->createMock(AccessTokenTransformerInterface::class);
         $tokenTransformer->expects(self::never())
@@ -138,7 +138,7 @@ final class ClientCredentialsTokenManagerTest extends TestCase
         $apiRequestException = $this->createMock(ExceptionInterface::class);
 
         $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
-        $apiRequestSender->method('post')
+        $apiRequestSender->method('postForm')
             ->with('test-url', [], $headers, $bodyData)
             ->willThrowException($apiRequestException);
 
