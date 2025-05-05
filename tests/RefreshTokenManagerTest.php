@@ -47,7 +47,7 @@ final class RefreshTokenManagerTest extends TestCase
         ];
 
         $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
-        $apiRequestSender->method('post')
+        $apiRequestSender->method('postForm')
             ->with('test-url', [], $headers, $bodyData)
             ->willReturn(['test-new-token-data']);
 
@@ -97,7 +97,7 @@ final class RefreshTokenManagerTest extends TestCase
 
         $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
         $apiRequestSender->expects(self::never())
-            ->method('post');
+            ->method('postForm');
 
         $tokenTransformer = $this->createMock(AccessTokenTransformerInterface::class);
         $tokenTransformer->expects(self::never())
@@ -148,7 +148,7 @@ final class RefreshTokenManagerTest extends TestCase
         $apiRequestException = $this->createMock(ExceptionInterface::class);
 
         $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
-        $apiRequestSender->method('post')
+        $apiRequestSender->method('postForm')
             ->with('test-url', [], $headers, $bodyData)
             ->willThrowException($apiRequestException);
 
