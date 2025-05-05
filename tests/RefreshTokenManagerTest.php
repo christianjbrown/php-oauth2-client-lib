@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace ChristianBrown\OAuth2Client\Tests;
 
-use ChristianBrown\ApiClient\ApiRequestSenderInterface;
 use ChristianBrown\ApiClient\Exception\ExceptionInterface;
+use ChristianBrown\ApiClient\JsonApiRequestSenderInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
 use ChristianBrown\OAuth2Client\Model\AccessToken;
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
@@ -46,8 +46,8 @@ final class RefreshTokenManagerTest extends TestCase
             TokenManagerInterface::REQUEST_KEY_REFRESH_TOKEN => 'test-existing-refresh-token-value',
         ];
 
-        $apiRequestSender = $this->createMock(ApiRequestSenderInterface::class);
-        $apiRequestSender->method('postData')
+        $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender->method('post')
             ->with('test-url', [], $headers, $bodyData)
             ->willReturn(['test-new-token-data']);
 
@@ -95,9 +95,9 @@ final class RefreshTokenManagerTest extends TestCase
     {
         $time = time();
 
-        $apiRequestSender = $this->createMock(ApiRequestSenderInterface::class);
+        $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
         $apiRequestSender->expects(self::never())
-            ->method('postData');
+            ->method('post');
 
         $tokenTransformer = $this->createMock(AccessTokenTransformerInterface::class);
         $tokenTransformer->expects(self::never())
@@ -147,8 +147,8 @@ final class RefreshTokenManagerTest extends TestCase
 
         $apiRequestException = $this->createMock(ExceptionInterface::class);
 
-        $apiRequestSender = $this->createMock(ApiRequestSenderInterface::class);
-        $apiRequestSender->method('postData')
+        $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender->method('post')
             ->with('test-url', [], $headers, $bodyData)
             ->willThrowException($apiRequestException);
 

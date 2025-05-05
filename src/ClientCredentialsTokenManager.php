@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace ChristianBrown\OAuth2Client;
 
-use ChristianBrown\ApiClient\ApiRequestSenderInterface;
 use ChristianBrown\ApiClient\Exception\ExceptionInterface;
+use ChristianBrown\ApiClient\JsonApiRequestSenderInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
 use ChristianBrown\OAuth2Client\Model\AccessToken;
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
@@ -19,11 +19,11 @@ use function sprintf;
 final class ClientCredentialsTokenManager implements ClientCredentialsTokenManagerInterface
 {
     private KeyValueStoreInterface $accessTokenKeyValueStore;
-    private ApiRequestSenderInterface $apiRequestSender;
+    private JsonApiRequestSenderInterface $apiRequestSender;
     private AccessTokenTransformerInterface $tokenTransformer;
     private string $url;
 
-    public function __construct(ApiRequestSenderInterface $jsonApiRequestSender, KeyValueStoreInterface $accessTokenKeyValueStore, AccessTokenTransformerInterface $tokenTransformer, string $url)
+    public function __construct(JsonApiRequestSenderInterface $jsonApiRequestSender, KeyValueStoreInterface $accessTokenKeyValueStore, AccessTokenTransformerInterface $tokenTransformer, string $url)
     {
         $this->apiRequestSender = $jsonApiRequestSender;
         $this->accessTokenKeyValueStore = $accessTokenKeyValueStore;
@@ -57,7 +57,7 @@ final class ClientCredentialsTokenManager implements ClientCredentialsTokenManag
         }
 
         try {
-            $data = $this->apiRequestSender->postData($this->url, [], $headers, $bodyData);
+            $data = $this->apiRequestSender->post($this->url, [], $headers, $bodyData);
         } catch (ExceptionInterface $e) {
             // @todo Could probably handle 401/403 more specifically
             throw new RequestException($e);
