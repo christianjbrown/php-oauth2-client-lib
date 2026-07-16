@@ -6,6 +6,7 @@ namespace ChristianBrown\OAuth2Client;
 
 interface TokenManagerInterface
 {
+    public const string BASIC_AUTH_VALUE_SPRINTF = 'Basic %s';
     public const string HEADER_KEY_AUTHORIZATION = 'Authorization';
     public const string HEADER_KEY_CONTENT_TYPE = 'Content-Type';
     public const string HEADER_VALUE_CONTENT_TYPE_FORM = 'application/x-www-form-urlencoded';
