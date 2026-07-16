@@ -7,6 +7,7 @@ namespace ChristianBrown\OAuth2Client\Tests;
 use ChristianBrown\ApiClient\Exception\ExceptionInterface;
 use ChristianBrown\ApiClient\JsonApiRequestSenderInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
+use ChristianBrown\OAuth2Client\Lock\LockInterface;
 use ChristianBrown\OAuth2Client\Model\AccessToken;
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
 use ChristianBrown\OAuth2Client\Model\AccessTokenType;
@@ -192,6 +193,167 @@ final class RefreshTokenManagerTest extends TestCase
             $manager->getAccessToken(self::TEST_CLIENT_ID, $forceNew);
         } catch (RequestExceptionInterface $e) {
             // We don't want to use expectException*() here because we want to assert the fields passed to it
+            $exceptionThrown = true;
+            self::assertSame($apiRequestException, $e->getRequestException());
+        }
+        self::assertTrue($exceptionThrown);
+    }
+
+    /**
+     * When a lock is supplied and no cached token exists, the refresh happens
+     * under the lock: it is acquired and then released.
+     *
+     * @throws Exception
+     */
+    public function testGetAccessTokenWithLockRefreshesUnderLock(): void
+    {
+        $time = time();
+        $headers = [TokenManagerInterface::HEADER_KEY_CONTENT_TYPE => TokenManagerInterface::HEADER_VALUE_CONTENT_TYPE_FORM];
+        $bodyData = [
+            TokenManagerInterface::REQUEST_KEY_GRANT_TYPE => GrantType::REFRESH_TOKEN->value,
+            TokenManagerInterface::REQUEST_KEY_REFRESH_TOKEN => 'test-existing-refresh-token-value',
+            TokenManagerInterface::REQUEST_KEY_CLIENT_ID => self::TEST_CLIENT_ID,
+        ];
+
+        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender->expects(self::once())
+            ->method('postForm')
+            ->with('test-url', [], $headers, $bodyData)
+            ->willReturn(['test-new-token-data']);
+
+        $accessToken = self::createStub(AccessTokenInterface::class);
+        $accessToken->method('getAccessToken')
+            ->willReturn('test-new-access-token');
+        $accessToken->method('getExpiresIn')
+            ->willReturn(42);
+        $accessToken->method('getRefreshToken')
+            ->willReturn('test-new-refresh-token');
+
+        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer->expects(self::once())
+            ->method('transform')
+            ->with(['test-new-token-data'])
+            ->willReturn($accessToken);
+
+        $refreshTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
+        $refreshTokenKeyValueStore->method('getValue')
+            ->willReturn('test-existing-refresh-token-value');
+        $refreshTokenKeyValueStore->expects(self::once())
+            ->method('setValue')
+            ->with('test-new-refresh-token');
+
+        $accessTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore->method('getValue')
+            ->willReturn(null);
+        $accessTokenKeyValueStore->expects(self::once())
+            ->method('setValue')
+            ->with('test-new-access-token', $time + 42);
+
+        $lock = self::createMock(LockInterface::class);
+        $lock->expects(self::once())
+            ->method('acquire');
+        $lock->expects(self::once())
+            ->method('release');
+
+        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url', null, $lock);
+        $actual = $manager->getAccessToken(self::TEST_CLIENT_ID, false);
+
+        self::assertSame($accessToken, $actual);
+    }
+
+    /**
+     * If another process refreshes the token while we wait for the lock, the
+     * re-read after acquiring returns that fresh token and no new call is made.
+     *
+     * @throws Exception
+     */
+    public function testGetAccessTokenWithLockReturnsTokenRefreshedWhileWaiting(): void
+    {
+        $time = time();
+
+        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender->expects(self::never())
+            ->method('postForm');
+
+        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer->expects(self::never())
+            ->method('transform');
+
+        $refreshTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
+        $refreshTokenKeyValueStore->expects(self::never())
+            ->method('setValue');
+
+        // The first read (before the lock) is empty, so we take the lock; the
+        // second read (after acquiring it) finds a token another process stored.
+        $accessTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore->method('getValue')
+            ->willReturn(null, 'test-refreshed-while-waiting');
+        $accessTokenKeyValueStore->method('getTtl')
+            ->willReturn($time + 42);
+        $accessTokenKeyValueStore->expects(self::never())
+            ->method('setValue');
+
+        $lock = self::createMock(LockInterface::class);
+        $lock->expects(self::once())
+            ->method('acquire');
+        $lock->expects(self::once())
+            ->method('release');
+
+        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url', null, $lock);
+        $actual = $manager->getAccessToken(self::TEST_CLIENT_ID, false);
+
+        self::assertSame('test-refreshed-while-waiting', $actual->getAccessToken());
+        // @todo Assumes the test can run within 42 seconds, ideally need to mock time()
+        self::assertSame($time + 42, $actual->getExpiresIn());
+    }
+
+    /**
+     * The lock is released even when the refresh call fails.
+     *
+     * @throws Exception
+     */
+    public function testGetAccessTokenWithLockReleasesOnFailure(): void
+    {
+        $headers = [TokenManagerInterface::HEADER_KEY_CONTENT_TYPE => TokenManagerInterface::HEADER_VALUE_CONTENT_TYPE_FORM];
+        $bodyData = [
+            TokenManagerInterface::REQUEST_KEY_GRANT_TYPE => GrantType::REFRESH_TOKEN->value,
+            TokenManagerInterface::REQUEST_KEY_REFRESH_TOKEN => 'test-existing-refresh-token-value',
+            TokenManagerInterface::REQUEST_KEY_CLIENT_ID => self::TEST_CLIENT_ID,
+        ];
+
+        $apiRequestException = self::createStub(ExceptionInterface::class);
+
+        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender->expects(self::once())
+            ->method('postForm')
+            ->with('test-url', [], $headers, $bodyData)
+            ->willThrowException($apiRequestException);
+
+        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer->expects(self::never())
+            ->method('transform');
+
+        $refreshTokenKeyValueStore = self::createStub(KeyValueStoreInterface::class);
+        $refreshTokenKeyValueStore->method('getValue')
+            ->willReturn('test-existing-refresh-token-value');
+
+        $accessTokenKeyValueStore = self::createStub(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore->method('getValue')
+            ->willReturn(null);
+
+        $lock = self::createMock(LockInterface::class);
+        $lock->expects(self::once())
+            ->method('acquire');
+        $lock->expects(self::once())
+            ->method('release');
+
+        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url', null, $lock);
+
+        $exceptionThrown = false;
+
+        try {
+            $manager->getAccessToken(self::TEST_CLIENT_ID, false);
+        } catch (RequestExceptionInterface $e) {
             $exceptionThrown = true;
             self::assertSame($apiRequestException, $e->getRequestException());
         }
