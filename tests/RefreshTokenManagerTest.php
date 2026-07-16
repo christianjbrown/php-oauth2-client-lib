@@ -46,12 +46,13 @@ final class RefreshTokenManagerTest extends TestCase
             TokenManagerInterface::REQUEST_KEY_REFRESH_TOKEN => 'test-existing-refresh-token-value',
         ];
 
-        $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
-        $apiRequestSender->method('postForm')
+        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender->expects(self::once())
+            ->method('postForm')
             ->with('test-url', [], $headers, $bodyData)
             ->willReturn(['test-new-token-data']);
 
-        $accessToken = $this->createMock(AccessTokenInterface::class);
+        $accessToken = self::createStub(AccessTokenInterface::class);
         $accessToken->method('getAccessToken')
             ->willReturn('test-new-access-token');
         $accessToken->method('getExpiresIn')
@@ -59,24 +60,24 @@ final class RefreshTokenManagerTest extends TestCase
         $accessToken->method('getRefreshToken')
             ->willReturn('test-new-refresh-token');
 
-        $tokenTransformer = $this->createMock(AccessTokenTransformerInterface::class);
-        $tokenTransformer->method('transform')
+        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer->expects(self::once())
+            ->method('transform')
             ->with(['test-new-token-data'])
             ->willReturn($accessToken);
 
-        $refreshTokenKeyValueStore = $this->createMock(KeyValueStoreInterface::class);
+        $refreshTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
         $refreshTokenKeyValueStore->method('getValue')
             ->willReturn('test-existing-refresh-token-value');
         $refreshTokenKeyValueStore->expects(self::once())
             ->method('setValue')
             ->with('test-new-refresh-token');
 
-        $accessTokenKeyValueStore = $this->createMock(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn($existingTokenValue);
         $accessTokenKeyValueStore->method('getTtl')
             ->willReturn($existingTokenTtl);
-
         $accessTokenKeyValueStore->expects(self::once())
             ->method('setValue')
             // @todo Assumes the test can run in the same second.., need to mock time()
@@ -95,26 +96,25 @@ final class RefreshTokenManagerTest extends TestCase
     {
         $time = time();
 
-        $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
         $apiRequestSender->expects(self::never())
             ->method('postForm');
 
-        $tokenTransformer = $this->createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
         $tokenTransformer->expects(self::never())
             ->method('transform');
 
-        $refreshTokenKeyValueStore = $this->createMock(KeyValueStoreInterface::class);
+        $refreshTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
         $refreshTokenKeyValueStore->expects(self::never())
             ->method('getValue');
         $refreshTokenKeyValueStore->expects(self::never())
             ->method('setValue');
 
-        $accessTokenKeyValueStore = $this->createMock(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn('test-existing-access-token-value'); // Not empty
         $accessTokenKeyValueStore->method('getTtl')
             ->willReturn($time + 42); // Not expired
-
         $accessTokenKeyValueStore->expects(self::never())
             ->method('setValue');
 
@@ -145,20 +145,23 @@ final class RefreshTokenManagerTest extends TestCase
             TokenManagerInterface::REQUEST_KEY_REFRESH_TOKEN => 'test-existing-refresh-token-value',
         ];
 
-        $apiRequestException = $this->createMock(ExceptionInterface::class);
+        $apiRequestException = self::createStub(ExceptionInterface::class);
 
-        $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
-        $apiRequestSender->method('postForm')
+        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender->expects(self::once())
+            ->method('postForm')
             ->with('test-url', [], $headers, $bodyData)
             ->willThrowException($apiRequestException);
 
-        $tokenTransformer = $this->createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer->expects(self::never())
+            ->method('transform');
 
-        $refreshTokenKeyValueStore = $this->createMock(KeyValueStoreInterface::class);
+        $refreshTokenKeyValueStore = self::createStub(KeyValueStoreInterface::class);
         $refreshTokenKeyValueStore->method('getValue')
             ->willReturn('test-existing-refresh-token-value');
 
-        $accessTokenKeyValueStore = $this->createMock(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore = self::createStub(KeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn($existingTokenValue);
         $accessTokenKeyValueStore->method('getTtl')

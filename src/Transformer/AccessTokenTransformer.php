@@ -8,44 +8,103 @@ use ChristianBrown\OAuth2Client\Model\AccessToken;
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
 use ChristianBrown\OAuth2Client\Model\AccessTokenType;
 use ChristianBrown\OAuth2Client\Model\Exception\BadResponsePayloadFieldException;
+use ChristianBrown\OAuth2Client\Model\Exception\BadResponsePayloadFieldExceptionInterface;
 
+use function is_int;
 use function is_string;
 
 final class AccessTokenTransformer implements AccessTokenTransformerInterface
 {
+    /**
+     * @param array<array-key, mixed> $data
+     *
+     * @throws BadResponsePayloadFieldExceptionInterface
+     */
     public function transform(array $data): AccessTokenInterface
     {
-        if (empty($data[self::KEY_TOKEN_TYPE]) || !is_string($data[self::KEY_TOKEN_TYPE]) || null === AccessTokenType::tryFrom($data[self::KEY_TOKEN_TYPE])) {
-            throw new BadResponsePayloadFieldException(self::KEY_TOKEN_TYPE, $data);
-        }
-        $tokenType = AccessTokenType::from($data[self::KEY_TOKEN_TYPE]);
+        return new AccessToken(
+            $this->extractRequiredString($data, self::KEY_ACCESS_TOKEN),
+            $this->extractExpiresIn($data),
+            $this->extractOptionalString($data, self::KEY_REFRESH_TOKEN),
+            $this->extractOptionalString($data, self::KEY_SCOPE),
+            $this->extractTokenType($data),
+        );
+    }
 
-        if (empty($data[self::KEY_ACCESS_TOKEN]) || !is_string($data[self::KEY_ACCESS_TOKEN])) {
-            throw new BadResponsePayloadFieldException(self::KEY_ACCESS_TOKEN, $data);
-        }
-        $accessToken = $data[self::KEY_ACCESS_TOKEN];
-
-        if (empty($data[self::KEY_EXPIRES_IN]) || !is_int($data[self::KEY_EXPIRES_IN])) {
+    /**
+     * @param array<array-key, mixed> $data
+     *
+     * @throws BadResponsePayloadFieldExceptionInterface
+     */
+    private function extractExpiresIn(array $data): int
+    {
+        if (empty($data[self::KEY_EXPIRES_IN])) {
             throw new BadResponsePayloadFieldException(self::KEY_EXPIRES_IN, $data);
         }
-        $expiresIn = $data[self::KEY_EXPIRES_IN];
 
-        $refreshToken = null;
-        if (!empty($data[self::KEY_REFRESH_TOKEN])) {
-            if (!is_string($data[self::KEY_REFRESH_TOKEN])) {
-                throw new BadResponsePayloadFieldException(self::KEY_REFRESH_TOKEN, $data);
-            }
-            $refreshToken = $data[self::KEY_REFRESH_TOKEN];
+        if (!is_int($data[self::KEY_EXPIRES_IN])) {
+            throw new BadResponsePayloadFieldException(self::KEY_EXPIRES_IN, $data);
         }
 
-        $scope = null;
-        if (!empty($data[self::KEY_SCOPE])) {
-            if (!is_string($data[self::KEY_SCOPE])) {
-                throw new BadResponsePayloadFieldException(self::KEY_SCOPE, $data);
-            }
-            $scope = $data[self::KEY_SCOPE];
+        return $data[self::KEY_EXPIRES_IN];
+    }
+
+    /**
+     * @param array<array-key, mixed> $data
+     *
+     * @throws BadResponsePayloadFieldExceptionInterface
+     */
+    private function extractOptionalString(array $data, string $key): ?string
+    {
+        if (empty($data[$key])) {
+            return null;
         }
 
-        return new AccessToken($accessToken, $expiresIn, $refreshToken, $scope, $tokenType);
+        if (!is_string($data[$key])) {
+            throw new BadResponsePayloadFieldException($key, $data);
+        }
+
+        return $data[$key];
+    }
+
+    /**
+     * @param array<array-key, mixed> $data
+     *
+     * @throws BadResponsePayloadFieldExceptionInterface
+     */
+    private function extractRequiredString(array $data, string $key): string
+    {
+        if (empty($data[$key])) {
+            throw new BadResponsePayloadFieldException($key, $data);
+        }
+
+        if (!is_string($data[$key])) {
+            throw new BadResponsePayloadFieldException($key, $data);
+        }
+
+        return $data[$key];
+    }
+
+    /**
+     * @param array<array-key, mixed> $data
+     *
+     * @throws BadResponsePayloadFieldExceptionInterface
+     */
+    private function extractTokenType(array $data): AccessTokenType
+    {
+        if (empty($data[self::KEY_TOKEN_TYPE])) {
+            throw new BadResponsePayloadFieldException(self::KEY_TOKEN_TYPE, $data);
+        }
+
+        if (!is_string($data[self::KEY_TOKEN_TYPE])) {
+            throw new BadResponsePayloadFieldException(self::KEY_TOKEN_TYPE, $data);
+        }
+
+        $tokenType = AccessTokenType::tryFrom($data[self::KEY_TOKEN_TYPE]);
+        if (null === $tokenType) {
+            throw new BadResponsePayloadFieldException(self::KEY_TOKEN_TYPE, $data);
+        }
+
+        return $tokenType;
     }
 }

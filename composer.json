@@ -1,32 +1,78 @@
 {
     "name": "christianjbrown/php-oauth2-client-lib",
+    "description": "A thin, strongly-typed PHP 8.5+ OAuth 2.0 client that manages access tokens (refresh-token and client-credentials grants), caching them behind a mockable key-value store.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "oauth2",
+        "oauth",
+        "access-token",
+        "refresh-token",
+        "client-credentials",
+        "php"
+    ],
+    "authors": [
+        {
+            "name": "Christian Brown"
+        }
+    ],
     "require": {
-        "php": "^8.3",
+        "php": "^8.5",
         "christianjbrown/php-api-client-lib": "dev-main",
         "christianjbrown/php-key-value-store-lib": "dev-main",
         "psr/http-client": "^1.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^12.0",
-        "christianjbrown/php-code-quality-scripts": "dev-main"
+        "christianjbrown/php-code-quality-scripts": "dev-main",
+        "phpstan/phpstan": "^2.0",
+        "phpunit/phpunit": "^12.0"
     },
     "autoload": {
         "psr-4": {
-            "ChristianBrown\\OAuth2Client\\": "src/",
+            "ChristianBrown\\OAuth2Client\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
             "ChristianBrown\\OAuth2Client\\Tests\\": "tests/"
         }
     },
-    "repositories": [
-        {"type": "github", "url": "git@github.com:christianjbrown/php-api-client-lib.git"},
-        {"type": "github", "url": "git@github.com:christianjbrown/php-code-quality-scripts.git"},
-        {"type": "github", "url": "git@github.com:christianjbrown/php-key-value-store-lib.git"}
-    ],
+    "scripts": {
+        "test": [
+            "clear && XDEBUG_MODE=coverage php -d memory_limit=-1 ./bin/phpunit && open ./.phpunit.cache/code-coverage-html/index.html"
+        ],
+        "stan": [
+            "clear && ./bin/phpstan analyse"
+        ],
+        "check-style": [
+            "clear && ./bin/php-cs ./src ./tests"
+        ],
+        "check-style-diff": [
+            "clear && ./bin/php-cs-diff"
+        ],
+        "fix-style": [
+            "clear && ./bin/php-cs-fix ./src ./tests"
+        ],
+        "fix-style-diff": [
+            "clear && ./bin/php-cs-fix-diff"
+        ]
+    },
     "config": {
         "bin-dir": "bin"
     },
-    "scripts": {
-        "check-style": ["clear && ./bin/php-cs ./src ./tests"],
-        "fix-style": ["clear && ./bin/php-cs-fix ./src ./tests"],
-        "test": ["clear && XDEBUG_MODE=coverage ./bin/phpunit -d memory_limit=512M && open ./.phpunit.cache/code-coverage-html/index.html"]
-    }
+    "repositories": [
+        {
+            "type": "github",
+            "url": "git@github.com:christianjbrown/php-api-client-lib.git"
+        },
+        {
+            "type": "github",
+            "url": "git@github.com:christianjbrown/php-key-value-store-lib.git"
+        },
+        {
+            "type": "github",
+            "url": "git@github.com:christianjbrown/php-code-quality-scripts.git"
+        }
+    ],
+    "minimum-stability": "dev"
 }
