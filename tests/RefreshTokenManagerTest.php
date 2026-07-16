@@ -21,6 +21,8 @@ use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\TestCase;
 
+use function base64_encode;
+use function sprintf;
 use function time;
 
 #[CoversClass(AccessToken::class)]
@@ -28,6 +30,9 @@ use function time;
 #[CoversClass(RefreshTokenManager::class)]
 final class RefreshTokenManagerTest extends TestCase
 {
+    private const string TEST_CLIENT_ID = 'test-client-id';
+    private const string TEST_CLIENT_SECRET = 'test-client-secret';
+
     /**
      * @throws Exception
      */
@@ -36,15 +41,21 @@ final class RefreshTokenManagerTest extends TestCase
     #[TestWith([false, 'test-existing-access-token'])]
     #[TestWith([false, 'test-existing-access-token', -42])]
     #[TestWith([false, null, -42])]
-    public function testGetAccessToken(bool $forceNew, ?string $existingTokenValue = null, ?int $existingTokenTtl = null): void
+    #[TestWith([true, null, null, self::TEST_CLIENT_SECRET])]
+    public function testGetAccessToken(bool $forceNew, ?string $existingTokenValue = null, ?int $existingTokenTtl = null, ?string $clientSecret = null): void
     {
         $time = time();
         $headers = [TokenManagerInterface::HEADER_KEY_CONTENT_TYPE => TokenManagerInterface::HEADER_VALUE_CONTENT_TYPE_FORM];
         $bodyData = [
             TokenManagerInterface::REQUEST_KEY_GRANT_TYPE => GrantType::REFRESH_TOKEN->value,
-            TokenManagerInterface::REQUEST_KEY_CLIENT_ID => 'test-client-id',
             TokenManagerInterface::REQUEST_KEY_REFRESH_TOKEN => 'test-existing-refresh-token-value',
         ];
+
+        if (null !== $clientSecret) {
+            $headers[TokenManagerInterface::HEADER_KEY_AUTHORIZATION] = sprintf(TokenManagerInterface::BASIC_AUTH_VALUE_SPRINTF, base64_encode(self::TEST_CLIENT_ID.':'.$clientSecret));
+        } else {
+            $bodyData[TokenManagerInterface::REQUEST_KEY_CLIENT_ID] = self::TEST_CLIENT_ID;
+        }
 
         $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
         $apiRequestSender->expects(self::once())
@@ -83,8 +94,8 @@ final class RefreshTokenManagerTest extends TestCase
             // @todo Assumes the test can run in the same second.., need to mock time()
             ->with('test-new-access-token', $time + 42);
 
-        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
-        $actual = $manager->getAccessToken('test-client-id', $forceNew);
+        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url', $clientSecret);
+        $actual = $manager->getAccessToken(self::TEST_CLIENT_ID, $forceNew);
 
         self::assertSame($accessToken, $actual);
     }
@@ -119,7 +130,7 @@ final class RefreshTokenManagerTest extends TestCase
             ->method('setValue');
 
         $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
-        $actual = $manager->getAccessToken('test-client-id', false);
+        $actual = $manager->getAccessToken(self::TEST_CLIENT_ID, false);
 
         self::assertSame(AccessTokenType::BEARER, $actual->getTokenType());
         self::assertNull($actual->getRefreshToken());
@@ -136,14 +147,20 @@ final class RefreshTokenManagerTest extends TestCase
     #[TestWith([false, 'test-existing-access-token'])]
     #[TestWith([false, 'test-existing-access-token', -42])]
     #[TestWith([false, null, -42])]
-    public function testGetAccessTokenRequestException(bool $forceNew, ?string $existingTokenValue = null, ?int $existingTokenTtl = null): void
+    #[TestWith([true, null, null, self::TEST_CLIENT_SECRET])]
+    public function testGetAccessTokenRequestException(bool $forceNew, ?string $existingTokenValue = null, ?int $existingTokenTtl = null, ?string $clientSecret = null): void
     {
         $headers = [TokenManagerInterface::HEADER_KEY_CONTENT_TYPE => TokenManagerInterface::HEADER_VALUE_CONTENT_TYPE_FORM];
         $bodyData = [
             TokenManagerInterface::REQUEST_KEY_GRANT_TYPE => GrantType::REFRESH_TOKEN->value,
-            TokenManagerInterface::REQUEST_KEY_CLIENT_ID => 'test-client-id',
             TokenManagerInterface::REQUEST_KEY_REFRESH_TOKEN => 'test-existing-refresh-token-value',
         ];
+
+        if (null !== $clientSecret) {
+            $headers[TokenManagerInterface::HEADER_KEY_AUTHORIZATION] = sprintf(TokenManagerInterface::BASIC_AUTH_VALUE_SPRINTF, base64_encode(self::TEST_CLIENT_ID.':'.$clientSecret));
+        } else {
+            $bodyData[TokenManagerInterface::REQUEST_KEY_CLIENT_ID] = self::TEST_CLIENT_ID;
+        }
 
         $apiRequestException = self::createStub(ExceptionInterface::class);
 
@@ -167,12 +184,12 @@ final class RefreshTokenManagerTest extends TestCase
         $accessTokenKeyValueStore->method('getTtl')
             ->willReturn($existingTokenTtl);
 
-        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
+        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url', $clientSecret);
 
         $exceptionThrown = false;
 
         try {
-            $manager->getAccessToken('test-client-id', $forceNew);
+            $manager->getAccessToken(self::TEST_CLIENT_ID, $forceNew);
         } catch (RequestExceptionInterface $e) {
             // We don't want to use expectException*() here because we want to assert the fields passed to it
             $exceptionThrown = true;

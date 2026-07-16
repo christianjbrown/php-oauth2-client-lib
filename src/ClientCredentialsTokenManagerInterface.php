@@ -10,8 +10,6 @@ use ChristianBrown\OAuth2Client\Model\Exception\RequestExceptionInterface;
 
 interface ClientCredentialsTokenManagerInterface extends TokenManagerInterface
 {
-    public const string BASIC_AUTH_VALUE_SPRINTF = 'Basic %s';
-
     /**
      * @throws RequestExceptionInterface
      * @throws BadResponsePayloadFieldExceptionInterface
