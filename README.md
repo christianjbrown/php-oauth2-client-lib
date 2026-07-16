@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/christianjbrown/php-oauth2-client-lib/actions/workflows/ci.yml/badge.svg)](https://github.com/christianjbrown/php-oauth2-client-lib/actions/workflows/ci.yml)
 
-A small, strongly-typed PHP 8.5+ **OAuth 2.0 client** that fetches and caches access tokens. It hides
+A small, strongly-typed PHP **OAuth 2.0 client** that fetches and caches access tokens. It hides
 the token endpoint behind a couple of token managers, caches the resulting access (and refresh) token
 in an interchangeable [key-value store](https://github.com/christianjbrown/php-key-value-store-lib),
 and only calls the endpoint again when the cached token is missing, expired, or a refresh is forced.
