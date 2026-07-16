@@ -22,6 +22,10 @@ use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\TestCase;
 
+use function base64_encode;
+use function sprintf;
+use function time;
+
 #[CoversClass(AccessToken::class)]
 #[CoversClass(RequestException::class)]
 #[CoversClass(ClientCredentialsTokenManager::class)]
@@ -48,28 +52,29 @@ final class ClientCredentialsTokenManagerTest extends TestCase
             TokenManagerInterface::REQUEST_KEY_CLIENT_ID => 'test-client-id',
         ];
 
-        $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
-        $apiRequestSender->method('postForm')
+        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender->expects(self::once())
+            ->method('postForm')
             ->with('test-url', [], $headers, $bodyData)
             ->willReturn(['test-new-token-data']);
 
-        $accessToken = $this->createMock(AccessTokenInterface::class);
+        $accessToken = self::createStub(AccessTokenInterface::class);
         $accessToken->method('getAccessToken')
             ->willReturn('test-new-access-token');
         $accessToken->method('getExpiresIn')
             ->willReturn(42);
 
-        $tokenTransformer = $this->createMock(AccessTokenTransformerInterface::class);
-        $tokenTransformer->method('transform')
+        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer->expects(self::once())
+            ->method('transform')
             ->with(['test-new-token-data'])
             ->willReturn($accessToken);
 
-        $accessTokenKeyValueStore = $this->createMock(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn($existingTokenValue);
         $accessTokenKeyValueStore->method('getTtl')
             ->willReturn($existingTokenTtl);
-
         $accessTokenKeyValueStore->expects(self::once())
             ->method('setValue')
             // @todo Assumes the test can run in the same second.., need to mock time()
@@ -88,20 +93,19 @@ final class ClientCredentialsTokenManagerTest extends TestCase
     {
         $time = time();
 
-        $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
         $apiRequestSender->expects(self::never())
             ->method('postForm');
 
-        $tokenTransformer = $this->createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
         $tokenTransformer->expects(self::never())
             ->method('transform');
 
-        $accessTokenKeyValueStore = $this->createMock(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn('test-existing-access-token-value'); // Not empty
         $accessTokenKeyValueStore->method('getTtl')
             ->willReturn($time + 42); // Not expired
-
         $accessTokenKeyValueStore->expects(self::never())
             ->method('setValue');
 
@@ -135,20 +139,19 @@ final class ClientCredentialsTokenManagerTest extends TestCase
             TokenManagerInterface::REQUEST_KEY_CLIENT_ID => 'test-client-id',
         ];
 
-        $apiRequestException = $this->createMock(ExceptionInterface::class);
+        $apiRequestException = self::createStub(ExceptionInterface::class);
 
-        $apiRequestSender = $this->createMock(JsonApiRequestSenderInterface::class);
-        $apiRequestSender->method('postForm')
+        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender->expects(self::once())
+            ->method('postForm')
             ->with('test-url', [], $headers, $bodyData)
             ->willThrowException($apiRequestException);
 
-        $tokenTransformer = $this->createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer->expects(self::never())
+            ->method('transform');
 
-        $refreshTokenKeyValueStore = $this->createMock(KeyValueStoreInterface::class);
-        $refreshTokenKeyValueStore->method('getValue')
-            ->willReturn('test-existing-refresh-token-value');
-
-        $accessTokenKeyValueStore = $this->createMock(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore = self::createStub(KeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn($existingTokenValue);
         $accessTokenKeyValueStore->method('getTtl')

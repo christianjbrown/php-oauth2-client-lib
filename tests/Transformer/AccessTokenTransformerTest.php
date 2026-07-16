@@ -94,6 +94,7 @@ final class AccessTokenTransformerTest extends TestCase
     }
 
     #[TestWith([AccessTokenTransformerInterface::KEY_ACCESS_TOKEN])]
+    #[TestWith([AccessTokenTransformerInterface::KEY_EXPIRES_IN])]
     #[TestWith([AccessTokenTransformerInterface::KEY_TOKEN_TYPE])]
     public function testTransformFailureRequiredEmpty(string $field): void
     {
@@ -115,6 +116,7 @@ final class AccessTokenTransformerTest extends TestCase
     }
 
     #[TestWith([AccessTokenTransformerInterface::KEY_ACCESS_TOKEN])]
+    #[TestWith([AccessTokenTransformerInterface::KEY_EXPIRES_IN])]
     #[TestWith([AccessTokenTransformerInterface::KEY_TOKEN_TYPE])]
     public function testTransformFailureRequiredMissing(string $field): void
     {
@@ -144,5 +146,19 @@ final class AccessTokenTransformerTest extends TestCase
         self::assertSame(self::GOOD_RESPONSE_PAYLOAD[AccessTokenTransformerInterface::KEY_EXPIRES_IN], $actual->getExpiresIn());
         self::assertSame(self::GOOD_RESPONSE_PAYLOAD[AccessTokenTransformerInterface::KEY_SCOPE], $actual->getScope());
         self::assertSame(self::GOOD_RESPONSE_PAYLOAD[AccessTokenTransformerInterface::KEY_REFRESH_TOKEN], $actual->getRefreshToken());
+    }
+
+    public function testTransformSuccessWithoutOptionalFields(): void
+    {
+        $data = self::GOOD_RESPONSE_PAYLOAD;
+        unset($data[AccessTokenTransformerInterface::KEY_SCOPE], $data[AccessTokenTransformerInterface::KEY_REFRESH_TOKEN]);
+
+        $transformer = new AccessTokenTransformer();
+        $actual = $transformer->transform($data);
+        self::assertSame(self::GOOD_RESPONSE_PAYLOAD[AccessTokenTransformerInterface::KEY_ACCESS_TOKEN], $actual->getAccessToken());
+        self::assertSame(AccessTokenType::BEARER, $actual->getTokenType());
+        self::assertSame(self::GOOD_RESPONSE_PAYLOAD[AccessTokenTransformerInterface::KEY_EXPIRES_IN], $actual->getExpiresIn());
+        self::assertNull($actual->getScope());
+        self::assertNull($actual->getRefreshToken());
     }
 }

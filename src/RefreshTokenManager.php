@@ -9,9 +9,13 @@ use ChristianBrown\ApiClient\JsonApiRequestSenderInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
 use ChristianBrown\OAuth2Client\Model\AccessToken;
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
+use ChristianBrown\OAuth2Client\Model\Exception\BadResponsePayloadFieldExceptionInterface;
 use ChristianBrown\OAuth2Client\Model\Exception\RequestException;
+use ChristianBrown\OAuth2Client\Model\Exception\RequestExceptionInterface;
 use ChristianBrown\OAuth2Client\Model\GrantType;
 use ChristianBrown\OAuth2Client\Transformer\AccessTokenTransformerInterface;
+
+use function time;
 
 final class RefreshTokenManager implements RefreshTokenManagerInterface
 {
@@ -23,30 +27,30 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
 
     public function __construct(JsonApiRequestSenderInterface $apiRequestSender, KeyValueStoreInterface $accessTokenKeyValueStore, KeyValueStoreInterface $refreshTokenKeyValueStore, AccessTokenTransformerInterface $tokenTransformer, string $url)
     {
+        $this->accessTokenKeyValueStore = $accessTokenKeyValueStore;
         $this->apiRequestSender = $apiRequestSender;
+        $this->refreshTokenKeyValueStore = $refreshTokenKeyValueStore;
         $this->tokenTransformer = $tokenTransformer;
         $this->url = $url;
-        $this->refreshTokenKeyValueStore = $refreshTokenKeyValueStore;
-        $this->accessTokenKeyValueStore = $accessTokenKeyValueStore;
     }
 
+    /**
+     * @throws RequestExceptionInterface
+     * @throws BadResponsePayloadFieldExceptionInterface
+     */
     public function getAccessToken(string $clientId, bool $forceNew = false): AccessTokenInterface
     {
-        $time = time();
-
-        $existingAccessTokenValue = $this->accessTokenKeyValueStore->getValue();
-        $existingAccessTokenTtl = $this->accessTokenKeyValueStore->getTtl();
-
-        if (!$forceNew && !empty($existingAccessTokenValue) && $existingAccessTokenTtl > $time) {
-            return new AccessToken($existingAccessTokenValue, $existingAccessTokenTtl);
+        $cachedAccessToken = $this->getCachedAccessToken($forceNew);
+        if (null !== $cachedAccessToken) {
+            return $cachedAccessToken;
         }
 
+        $time = time();
         $headers = [self::HEADER_KEY_CONTENT_TYPE => self::HEADER_VALUE_CONTENT_TYPE_FORM];
-        $refreshTokenValue = $this->refreshTokenKeyValueStore->getValue();
         $bodyData = [
             self::REQUEST_KEY_GRANT_TYPE => GrantType::REFRESH_TOKEN->value,
             self::REQUEST_KEY_CLIENT_ID => $clientId,
-            self::REQUEST_KEY_REFRESH_TOKEN => $refreshTokenValue,
+            self::REQUEST_KEY_REFRESH_TOKEN => (string) $this->refreshTokenKeyValueStore->getValue(),
         ];
 
         try {
@@ -62,5 +66,28 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
         $this->accessTokenKeyValueStore->setValue($accessToken->getAccessToken(), $time + $accessToken->getExpiresIn());
 
         return $accessToken;
+    }
+
+    private function getCachedAccessToken(bool $forceNew): ?AccessTokenInterface
+    {
+        if ($forceNew) {
+            return null;
+        }
+
+        $value = $this->accessTokenKeyValueStore->getValue();
+        if (empty($value)) {
+            return null;
+        }
+
+        $ttl = $this->accessTokenKeyValueStore->getTtl();
+        if (null === $ttl) {
+            return null;
+        }
+
+        if ($ttl <= time()) {
+            return null;
+        }
+
+        return new AccessToken($value, $ttl);
     }
 }

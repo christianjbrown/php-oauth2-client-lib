@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ChristianBrown\OAuth2Client\Transformer;
 
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
+use ChristianBrown\OAuth2Client\Model\Exception\BadResponsePayloadFieldExceptionInterface;
 
 interface AccessTokenTransformerInterface
 {
@@ -14,5 +15,10 @@ interface AccessTokenTransformerInterface
     public const string KEY_SCOPE = 'scope';
     public const string KEY_TOKEN_TYPE = 'token_type';
 
+    /**
+     * @param array<array-key, mixed> $data
+     *
+     * @throws BadResponsePayloadFieldExceptionInterface
+     */
     public function transform(array $data): AccessTokenInterface;
 }

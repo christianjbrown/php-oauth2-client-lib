@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - LICENSE
+      - .gitignore
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - LICENSE
+      - .gitignore
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: xdebug
+
+      # The runtime and dev dependencies are private `dev-main` packages on GitHub.
+      # Composer needs credentials to fetch them; supply a token with read access
+      # via the COMPOSER_AUTH secret (or swap the repositories to HTTPS + token).
+      - name: Configure Composer auth
+        run: echo "COMPOSER_AUTH=$COMPOSER_AUTH" >> "$GITHUB_ENV"
+        env:
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Check code style
+        run: ./bin/php-cs ./src ./tests
+
+      - name: Static analysis
+        run: ./bin/phpstan analyse --no-progress
+
+      - name: Run tests with coverage
+        run: XDEBUG_MODE=coverage php -d memory_limit=-1 ./bin/phpunit

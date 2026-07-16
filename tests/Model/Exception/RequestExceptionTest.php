@@ -22,13 +22,13 @@ final class RequestExceptionTest extends TestCase
      */
     public function test(): void
     {
-        $requestUri = $this->createMock(UriInterface::class);
+        $requestUri = self::createStub(UriInterface::class);
         $requestUri->method('__toString')
             ->willReturn('test-uri');
-        $request = $this->createMock(RequestInterface::class);
+        $request = self::createStub(RequestInterface::class);
         $request->method('getUri')
             ->willReturn($requestUri);
-        $previous = $this->createMock(GuzzleConnectException::class);
+        $previous = self::createStub(GuzzleConnectException::class);
 
         $apiClientException = new ConnectException($request, $previous);
 
