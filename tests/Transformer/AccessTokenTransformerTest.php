@@ -148,6 +148,20 @@ final class AccessTokenTransformerTest extends TestCase
         self::assertSame(self::GOOD_RESPONSE_PAYLOAD[AccessTokenTransformerInterface::KEY_REFRESH_TOKEN], $actual->getRefreshToken());
     }
 
+    #[TestWith(['bearer'])]
+    #[TestWith(['BEARER'])]
+    #[TestWith(['Bearer'])]
+    public function testTransformSuccessWithCaseInsensitiveTokenType(string $tokenType): void
+    {
+        // RFC 6749 section 7.1: token_type is case-insensitive.
+        $data = self::GOOD_RESPONSE_PAYLOAD;
+        $data[AccessTokenTransformerInterface::KEY_TOKEN_TYPE] = $tokenType;
+
+        $transformer = new AccessTokenTransformer();
+        $actual = $transformer->transform($data);
+        self::assertSame(AccessTokenType::BEARER, $actual->getTokenType());
+    }
+
     public function testTransformSuccessWithoutOptionalFields(): void
     {
         $data = self::GOOD_RESPONSE_PAYLOAD;
