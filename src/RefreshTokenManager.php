@@ -8,6 +8,8 @@ use ChristianBrown\ApiClient\Exception\ExceptionInterface;
 use ChristianBrown\ApiClient\Exception\Response\ResponseExceptionInterface;
 use ChristianBrown\ApiClient\JsonApiRequestSenderInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
+use ChristianBrown\KeyValueStore\TtlAwareKeyValueStoreInterface;
+use ChristianBrown\OAuth2Client\Lock\LockInterface;
 use ChristianBrown\OAuth2Client\Model\AccessToken;
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
 use ChristianBrown\OAuth2Client\Model\Exception\BadResponsePayloadFieldExceptionInterface;
@@ -15,7 +17,6 @@ use ChristianBrown\OAuth2Client\Model\Exception\InvalidGrantException;
 use ChristianBrown\OAuth2Client\Model\Exception\InvalidGrantExceptionInterface;
 use ChristianBrown\OAuth2Client\Model\Exception\RequestException;
 use ChristianBrown\OAuth2Client\Model\Exception\RequestExceptionInterface;
-use ChristianBrown\OAuth2Client\Lock\LockInterface;
 use ChristianBrown\OAuth2Client\Model\GrantType;
 use ChristianBrown\OAuth2Client\Transformer\AccessTokenTransformerInterface;
 use Throwable;
@@ -28,7 +29,7 @@ use function time;
 
 final class RefreshTokenManager implements RefreshTokenManagerInterface
 {
-    private KeyValueStoreInterface $accessTokenKeyValueStore;
+    private TtlAwareKeyValueStoreInterface $accessTokenKeyValueStore;
     private JsonApiRequestSenderInterface $apiRequestSender;
     private ?string $clientSecret;
     private ?LockInterface $lock;
@@ -36,7 +37,7 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
     private AccessTokenTransformerInterface $tokenTransformer;
     private string $url;
 
-    public function __construct(JsonApiRequestSenderInterface $apiRequestSender, KeyValueStoreInterface $accessTokenKeyValueStore, KeyValueStoreInterface $refreshTokenKeyValueStore, AccessTokenTransformerInterface $tokenTransformer, string $url, ?string $clientSecret = null, ?LockInterface $lock = null)
+    public function __construct(JsonApiRequestSenderInterface $apiRequestSender, TtlAwareKeyValueStoreInterface $accessTokenKeyValueStore, KeyValueStoreInterface $refreshTokenKeyValueStore, AccessTokenTransformerInterface $tokenTransformer, string $url, ?string $clientSecret = null, ?LockInterface $lock = null)
     {
         $this->accessTokenKeyValueStore = $accessTokenKeyValueStore;
         $this->apiRequestSender = $apiRequestSender;
@@ -84,25 +85,6 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
     }
 
     /**
-     * Re-read the cache and, only if it is still empty, refresh. Called under
-     * the lock: another process may have refreshed while we waited for it, in
-     * which case its freshly stored token is returned without a new call.
-     *
-     * @throws RequestExceptionInterface
-     * @throws InvalidGrantExceptionInterface
-     * @throws BadResponsePayloadFieldExceptionInterface
-     */
-    private function getCachedOrFetchedAccessToken(string $clientId, bool $forceNew): AccessTokenInterface
-    {
-        $cachedAccessToken = $this->getCachedAccessToken($forceNew);
-        if (null !== $cachedAccessToken) {
-            return $cachedAccessToken;
-        }
-
-        return $this->fetchAndStoreAccessToken($clientId);
-    }
-
-    /**
      * @throws RequestExceptionInterface
      * @throws InvalidGrantExceptionInterface
      * @throws BadResponsePayloadFieldExceptionInterface
@@ -145,24 +127,6 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
         return $accessToken;
     }
 
-    private function isInvalidGrant(ExceptionInterface $e): bool
-    {
-        if (!$e instanceof ResponseExceptionInterface) {
-            return false;
-        }
-
-        $decoded = json_decode((string) $e->getResponse()->getBody(), true);
-        if (!is_array($decoded)) {
-            return false;
-        }
-
-        if (!isset($decoded[self::RESPONSE_KEY_ERROR])) {
-            return false;
-        }
-
-        return self::ERROR_INVALID_GRANT === $decoded[self::RESPONSE_KEY_ERROR];
-    }
-
     private function getCachedAccessToken(bool $forceNew): ?AccessTokenInterface
     {
         if ($forceNew) {
@@ -187,5 +151,42 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
         // $ttl is the absolute expiry epoch stored at fetch time; AccessToken
         // expects a relative lifetime, so return the seconds still remaining.
         return new AccessToken($value, $ttl - $now);
+    }
+
+    /**
+     * Re-read the cache and, only if it is still empty, refresh. Called under
+     * the lock: another process may have refreshed while we waited for it, in
+     * which case its freshly stored token is returned without a new call.
+     *
+     * @throws RequestExceptionInterface
+     * @throws InvalidGrantExceptionInterface
+     * @throws BadResponsePayloadFieldExceptionInterface
+     */
+    private function getCachedOrFetchedAccessToken(string $clientId, bool $forceNew): AccessTokenInterface
+    {
+        $cachedAccessToken = $this->getCachedAccessToken($forceNew);
+        if (null !== $cachedAccessToken) {
+            return $cachedAccessToken;
+        }
+
+        return $this->fetchAndStoreAccessToken($clientId);
+    }
+
+    private function isInvalidGrant(ExceptionInterface $e): bool
+    {
+        if (!$e instanceof ResponseExceptionInterface) {
+            return false;
+        }
+
+        $decoded = json_decode((string) $e->getResponse()->getBody(), true);
+        if (!is_array($decoded)) {
+            return false;
+        }
+
+        if (!isset($decoded[self::RESPONSE_KEY_ERROR])) {
+            return false;
+        }
+
+        return self::ERROR_INVALID_GRANT === $decoded[self::RESPONSE_KEY_ERROR];
     }
 }

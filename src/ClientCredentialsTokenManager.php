@@ -6,7 +6,7 @@ namespace ChristianBrown\OAuth2Client;
 
 use ChristianBrown\ApiClient\Exception\ExceptionInterface;
 use ChristianBrown\ApiClient\JsonApiRequestSenderInterface;
-use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
+use ChristianBrown\KeyValueStore\TtlAwareKeyValueStoreInterface;
 use ChristianBrown\OAuth2Client\Model\AccessToken;
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
 use ChristianBrown\OAuth2Client\Model\Exception\BadResponsePayloadFieldExceptionInterface;
@@ -22,12 +22,12 @@ use function time;
 
 final class ClientCredentialsTokenManager implements ClientCredentialsTokenManagerInterface
 {
-    private KeyValueStoreInterface $accessTokenKeyValueStore;
+    private TtlAwareKeyValueStoreInterface $accessTokenKeyValueStore;
     private JsonApiRequestSenderInterface $apiRequestSender;
     private AccessTokenTransformerInterface $tokenTransformer;
     private string $url;
 
-    public function __construct(JsonApiRequestSenderInterface $jsonApiRequestSender, KeyValueStoreInterface $accessTokenKeyValueStore, AccessTokenTransformerInterface $tokenTransformer, string $url)
+    public function __construct(JsonApiRequestSenderInterface $jsonApiRequestSender, TtlAwareKeyValueStoreInterface $accessTokenKeyValueStore, AccessTokenTransformerInterface $tokenTransformer, string $url)
     {
         $this->accessTokenKeyValueStore = $accessTokenKeyValueStore;
         $this->apiRequestSender = $jsonApiRequestSender;

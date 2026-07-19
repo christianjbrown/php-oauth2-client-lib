@@ -48,12 +48,15 @@ Everything lives under the `ChristianBrown\OAuth2Client\` namespace (`src/`), mi
   of it.
 - **`RefreshTokenManager` / `RefreshTokenManagerInterface`** — `getAccessToken(string $clientId, bool
   $forceNew = false)`. Constructed with a `JsonApiRequestSenderInterface`, an access-token
-  `KeyValueStoreInterface`, a refresh-token `KeyValueStoreInterface`, an
-  `AccessTokenTransformerInterface`, and the endpoint `string $url`.
+  `TtlAwareKeyValueStoreInterface`, a refresh-token `KeyValueStoreInterface`, an
+  `AccessTokenTransformerInterface`, and the endpoint `string $url`. The access-token store is typed
+  `TtlAwareKeyValueStoreInterface` because the manager reads/writes its expiry (`getTtl()` +
+  `setValue($value, $ttl)`); the refresh-token store only holds a value, so it stays the base
+  `KeyValueStoreInterface`.
 - **`ClientCredentialsTokenManager` / `ClientCredentialsTokenManagerInterface`** —
   `getAccessTokenFromBasicAuth(string $basicAuthValue, ?string $scope = null, ?string $clientId =
-  null, bool $forceNew = false)`. Same constructor minus the refresh-token store. `BASIC_AUTH_VALUE_SPRINTF`
-  lives on its interface.
+  null, bool $forceNew = false)`. Same constructor minus the refresh-token store (its access-token
+  store is likewise a `TtlAwareKeyValueStoreInterface`). `BASIC_AUTH_VALUE_SPRINTF` lives on its interface.
 - **`Model\AccessToken` / `AccessTokenInterface`** — the immutable token value object
   (`getAccessToken`, `getExpiresIn`, `getRefreshToken`, `getScope`, `getTokenType`).
 - **`Model\AccessTokenType`, `Model\GrantType`** — string-backed **enums** (keep them enums). Token
@@ -90,8 +93,8 @@ caller hits the endpoint.
   docblocks (payloads are `array<array-key, mixed>`). Public methods that can throw carry `@throws`
   docblocks naming the concrete exception **interface(s)**, on both the interface and the implementation.
 - Dependencies are constructor-injected and typed against interfaces
-  (`JsonApiRequestSenderInterface`, `KeyValueStoreInterface`, `AccessTokenTransformerInterface`) so
-  everything is mockable.
+  (`JsonApiRequestSenderInterface`, `TtlAwareKeyValueStoreInterface` / `KeyValueStoreInterface`,
+  `AccessTokenTransformerInterface`) so everything is mockable.
 
 ## Testing
 

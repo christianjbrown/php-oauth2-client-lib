@@ -6,7 +6,7 @@ namespace ChristianBrown\OAuth2Client\Tests;
 
 use ChristianBrown\ApiClient\Exception\ExceptionInterface;
 use ChristianBrown\ApiClient\JsonApiRequestSenderInterface;
-use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
+use ChristianBrown\KeyValueStore\TtlAwareKeyValueStoreInterface;
 use ChristianBrown\OAuth2Client\ClientCredentialsTokenManager;
 use ChristianBrown\OAuth2Client\ClientCredentialsTokenManagerInterface;
 use ChristianBrown\OAuth2Client\Model\AccessToken;
@@ -70,7 +70,7 @@ final class ClientCredentialsTokenManagerTest extends TestCase
             ->with(['test-new-token-data'])
             ->willReturn($accessToken);
 
-        $accessTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore = self::createMock(TtlAwareKeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn($existingTokenValue);
         $accessTokenKeyValueStore->method('getTtl')
@@ -101,7 +101,7 @@ final class ClientCredentialsTokenManagerTest extends TestCase
         $tokenTransformer->expects(self::never())
             ->method('transform');
 
-        $accessTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore = self::createMock(TtlAwareKeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn('test-existing-access-token-value'); // Not empty
         $accessTokenKeyValueStore->method('getTtl')
@@ -153,7 +153,7 @@ final class ClientCredentialsTokenManagerTest extends TestCase
         $tokenTransformer->expects(self::never())
             ->method('transform');
 
-        $accessTokenKeyValueStore = self::createStub(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore = self::createStub(TtlAwareKeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn($existingTokenValue);
         $accessTokenKeyValueStore->method('getTtl')
