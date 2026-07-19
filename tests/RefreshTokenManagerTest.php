@@ -8,6 +8,7 @@ use ChristianBrown\ApiClient\Exception\ExceptionInterface;
 use ChristianBrown\ApiClient\Exception\Response\ResponseExceptionInterface;
 use ChristianBrown\ApiClient\JsonApiRequestSenderInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
+use ChristianBrown\KeyValueStore\TtlAwareKeyValueStoreInterface;
 use ChristianBrown\OAuth2Client\Lock\LockInterface;
 use ChristianBrown\OAuth2Client\Model\AccessToken;
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
@@ -91,7 +92,7 @@ final class RefreshTokenManagerTest extends TestCase
             ->method('setValue')
             ->with('test-new-refresh-token');
 
-        $accessTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore = self::createMock(TtlAwareKeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn($existingTokenValue);
         $accessTokenKeyValueStore->method('getTtl')
@@ -128,7 +129,7 @@ final class RefreshTokenManagerTest extends TestCase
         $refreshTokenKeyValueStore->expects(self::never())
             ->method('setValue');
 
-        $accessTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore = self::createMock(TtlAwareKeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn('test-existing-access-token-value'); // Not empty
         $accessTokenKeyValueStore->method('getTtl')
@@ -146,6 +147,91 @@ final class RefreshTokenManagerTest extends TestCase
         self::assertGreaterThan(0, $actual->getExpiresIn());
         self::assertLessThanOrEqual(42, $actual->getExpiresIn());
         self::assertSame('test-existing-access-token-value', $actual->getAccessToken());
+    }
+
+    /**
+     * An `invalid_grant` response means the stored refresh token is dead: it is
+     * cleared and an InvalidGrantException is thrown so the caller re-authorises.
+     *
+     * @throws Exception
+     */
+    public function testGetAccessTokenInvalidGrantClearsRefreshTokenAndThrows(): void
+    {
+        $apiRequestException = $this->createResponseException('{"error":"invalid_grant"}');
+
+        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender->expects(self::once())
+            ->method('postForm')
+            ->willThrowException($apiRequestException);
+
+        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer->expects(self::never())
+            ->method('transform');
+
+        $refreshTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
+        $refreshTokenKeyValueStore->method('getValue')
+            ->willReturn('test-existing-refresh-token-value');
+        $refreshTokenKeyValueStore->expects(self::once())
+            ->method('setValue')
+            ->with(null);
+
+        $accessTokenKeyValueStore = self::createStub(TtlAwareKeyValueStoreInterface::class);
+
+        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
+
+        $exceptionThrown = false;
+
+        try {
+            $manager->getAccessToken(self::TEST_CLIENT_ID);
+        } catch (InvalidGrantExceptionInterface $e) {
+            $exceptionThrown = true;
+            self::assertSame($apiRequestException, $e->getRequestException());
+        }
+        self::assertTrue($exceptionThrown);
+    }
+
+    /**
+     * A non-successful response that is not an `invalid_grant` is surfaced as a
+     * plain RequestException and must NOT clear the stored refresh token.
+     *
+     * @throws Exception
+     */
+    #[TestWith(['not-json'])]
+    #[TestWith(['{"foo":"bar"}'])]
+    #[TestWith(['{"error":"invalid_client"}'])]
+    public function testGetAccessTokenNonInvalidGrantResponseThrowsRequestException(string $responseBody): void
+    {
+        $apiRequestException = $this->createResponseException($responseBody);
+
+        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender->expects(self::once())
+            ->method('postForm')
+            ->willThrowException($apiRequestException);
+
+        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer->expects(self::never())
+            ->method('transform');
+
+        $refreshTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
+        $refreshTokenKeyValueStore->method('getValue')
+            ->willReturn('test-existing-refresh-token-value');
+        $refreshTokenKeyValueStore->expects(self::never())
+            ->method('setValue');
+
+        $accessTokenKeyValueStore = self::createStub(TtlAwareKeyValueStoreInterface::class);
+
+        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
+
+        $exceptionThrown = false;
+
+        try {
+            $manager->getAccessToken(self::TEST_CLIENT_ID);
+        } catch (RequestExceptionInterface $e) {
+            $exceptionThrown = true;
+            self::assertNotInstanceOf(InvalidGrantExceptionInterface::class, $e);
+            self::assertSame($apiRequestException, $e->getRequestException());
+        }
+        self::assertTrue($exceptionThrown);
     }
 
     /**
@@ -187,7 +273,7 @@ final class RefreshTokenManagerTest extends TestCase
         $refreshTokenKeyValueStore->method('getValue')
             ->willReturn('test-existing-refresh-token-value');
 
-        $accessTokenKeyValueStore = self::createStub(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore = self::createStub(TtlAwareKeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn($existingTokenValue);
         $accessTokenKeyValueStore->method('getTtl')
@@ -201,91 +287,6 @@ final class RefreshTokenManagerTest extends TestCase
             $manager->getAccessToken(self::TEST_CLIENT_ID, $forceNew);
         } catch (RequestExceptionInterface $e) {
             // We don't want to use expectException*() here because we want to assert the fields passed to it
-            $exceptionThrown = true;
-            self::assertSame($apiRequestException, $e->getRequestException());
-        }
-        self::assertTrue($exceptionThrown);
-    }
-
-    /**
-     * A non-successful response that is not an `invalid_grant` is surfaced as a
-     * plain RequestException and must NOT clear the stored refresh token.
-     *
-     * @throws Exception
-     */
-    #[TestWith(['not-json'])]
-    #[TestWith(['{"foo":"bar"}'])]
-    #[TestWith(['{"error":"invalid_client"}'])]
-    public function testGetAccessTokenNonInvalidGrantResponseThrowsRequestException(string $responseBody): void
-    {
-        $apiRequestException = $this->createResponseException($responseBody);
-
-        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
-        $apiRequestSender->expects(self::once())
-            ->method('postForm')
-            ->willThrowException($apiRequestException);
-
-        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
-        $tokenTransformer->expects(self::never())
-            ->method('transform');
-
-        $refreshTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
-        $refreshTokenKeyValueStore->method('getValue')
-            ->willReturn('test-existing-refresh-token-value');
-        $refreshTokenKeyValueStore->expects(self::never())
-            ->method('setValue');
-
-        $accessTokenKeyValueStore = self::createStub(KeyValueStoreInterface::class);
-
-        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
-
-        $exceptionThrown = false;
-
-        try {
-            $manager->getAccessToken(self::TEST_CLIENT_ID);
-        } catch (RequestExceptionInterface $e) {
-            $exceptionThrown = true;
-            self::assertNotInstanceOf(InvalidGrantExceptionInterface::class, $e);
-            self::assertSame($apiRequestException, $e->getRequestException());
-        }
-        self::assertTrue($exceptionThrown);
-    }
-
-    /**
-     * An `invalid_grant` response means the stored refresh token is dead: it is
-     * cleared and an InvalidGrantException is thrown so the caller re-authorises.
-     *
-     * @throws Exception
-     */
-    public function testGetAccessTokenInvalidGrantClearsRefreshTokenAndThrows(): void
-    {
-        $apiRequestException = $this->createResponseException('{"error":"invalid_grant"}');
-
-        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
-        $apiRequestSender->expects(self::once())
-            ->method('postForm')
-            ->willThrowException($apiRequestException);
-
-        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
-        $tokenTransformer->expects(self::never())
-            ->method('transform');
-
-        $refreshTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
-        $refreshTokenKeyValueStore->method('getValue')
-            ->willReturn('test-existing-refresh-token-value');
-        $refreshTokenKeyValueStore->expects(self::once())
-            ->method('setValue')
-            ->with(null);
-
-        $accessTokenKeyValueStore = self::createStub(KeyValueStoreInterface::class);
-
-        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
-
-        $exceptionThrown = false;
-
-        try {
-            $manager->getAccessToken(self::TEST_CLIENT_ID);
-        } catch (InvalidGrantExceptionInterface $e) {
             $exceptionThrown = true;
             self::assertSame($apiRequestException, $e->getRequestException());
         }
@@ -335,7 +336,7 @@ final class RefreshTokenManagerTest extends TestCase
             ->method('setValue')
             ->with('test-new-refresh-token');
 
-        $accessTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore = self::createMock(TtlAwareKeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn(null);
         $accessTokenKeyValueStore->expects(self::once())
@@ -352,54 +353,6 @@ final class RefreshTokenManagerTest extends TestCase
         $actual = $manager->getAccessToken(self::TEST_CLIENT_ID, false);
 
         self::assertSame($accessToken, $actual);
-    }
-
-    /**
-     * If another process refreshes the token while we wait for the lock, the
-     * re-read after acquiring returns that fresh token and no new call is made.
-     *
-     * @throws Exception
-     */
-    public function testGetAccessTokenWithLockReturnsTokenRefreshedWhileWaiting(): void
-    {
-        $time = time();
-
-        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
-        $apiRequestSender->expects(self::never())
-            ->method('postForm');
-
-        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
-        $tokenTransformer->expects(self::never())
-            ->method('transform');
-
-        $refreshTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
-        $refreshTokenKeyValueStore->expects(self::never())
-            ->method('setValue');
-
-        // The first read (before the lock) is empty, so we take the lock; the
-        // second read (after acquiring it) finds a token another process stored.
-        $accessTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
-        $accessTokenKeyValueStore->method('getValue')
-            ->willReturn(null, 'test-refreshed-while-waiting');
-        $accessTokenKeyValueStore->method('getTtl')
-            ->willReturn($time + 42);
-        $accessTokenKeyValueStore->expects(self::never())
-            ->method('setValue');
-
-        $lock = self::createMock(LockInterface::class);
-        $lock->expects(self::once())
-            ->method('acquire');
-        $lock->expects(self::once())
-            ->method('release');
-
-        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url', null, $lock);
-        $actual = $manager->getAccessToken(self::TEST_CLIENT_ID, false);
-
-        self::assertSame('test-refreshed-while-waiting', $actual->getAccessToken());
-        // getTtl() returns an absolute expiry epoch; getExpiresIn() is the
-        // relative lifetime remaining, so it is at most the original 42 seconds.
-        self::assertGreaterThan(0, $actual->getExpiresIn());
-        self::assertLessThanOrEqual(42, $actual->getExpiresIn());
     }
 
     /**
@@ -432,7 +385,7 @@ final class RefreshTokenManagerTest extends TestCase
         $refreshTokenKeyValueStore->method('getValue')
             ->willReturn('test-existing-refresh-token-value');
 
-        $accessTokenKeyValueStore = self::createStub(KeyValueStoreInterface::class);
+        $accessTokenKeyValueStore = self::createStub(TtlAwareKeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn(null);
 
@@ -453,6 +406,54 @@ final class RefreshTokenManagerTest extends TestCase
             self::assertSame($apiRequestException, $e->getRequestException());
         }
         self::assertTrue($exceptionThrown);
+    }
+
+    /**
+     * If another process refreshes the token while we wait for the lock, the
+     * re-read after acquiring returns that fresh token and no new call is made.
+     *
+     * @throws Exception
+     */
+    public function testGetAccessTokenWithLockReturnsTokenRefreshedWhileWaiting(): void
+    {
+        $time = time();
+
+        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender->expects(self::never())
+            ->method('postForm');
+
+        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer->expects(self::never())
+            ->method('transform');
+
+        $refreshTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
+        $refreshTokenKeyValueStore->expects(self::never())
+            ->method('setValue');
+
+        // The first read (before the lock) is empty, so we take the lock; the
+        // second read (after acquiring it) finds a token another process stored.
+        $accessTokenKeyValueStore = self::createMock(TtlAwareKeyValueStoreInterface::class);
+        $accessTokenKeyValueStore->method('getValue')
+            ->willReturn(null, 'test-refreshed-while-waiting');
+        $accessTokenKeyValueStore->method('getTtl')
+            ->willReturn($time + 42);
+        $accessTokenKeyValueStore->expects(self::never())
+            ->method('setValue');
+
+        $lock = self::createMock(LockInterface::class);
+        $lock->expects(self::once())
+            ->method('acquire');
+        $lock->expects(self::once())
+            ->method('release');
+
+        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url', null, $lock);
+        $actual = $manager->getAccessToken(self::TEST_CLIENT_ID, false);
+
+        self::assertSame('test-refreshed-while-waiting', $actual->getAccessToken());
+        // getTtl() returns an absolute expiry epoch; getExpiresIn() is the
+        // relative lifetime remaining, so it is at most the original 42 seconds.
+        self::assertGreaterThan(0, $actual->getExpiresIn());
+        self::assertLessThanOrEqual(42, $actual->getExpiresIn());
     }
 
     /**
