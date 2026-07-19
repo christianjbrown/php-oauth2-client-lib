@@ -12,3 +12,5 @@ bin/
 composer.lock
 vendor
 vendor/
+.phpstan.cache
+.phpstan.cache/

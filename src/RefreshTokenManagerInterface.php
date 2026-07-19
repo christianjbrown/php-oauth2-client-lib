@@ -6,12 +6,14 @@ namespace ChristianBrown\OAuth2Client;
 
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
 use ChristianBrown\OAuth2Client\Model\Exception\BadResponsePayloadFieldExceptionInterface;
+use ChristianBrown\OAuth2Client\Model\Exception\InvalidGrantExceptionInterface;
 use ChristianBrown\OAuth2Client\Model\Exception\RequestExceptionInterface;
 
 interface RefreshTokenManagerInterface extends TokenManagerInterface
 {
     /**
      * @throws RequestExceptionInterface
+     * @throws InvalidGrantExceptionInterface
      * @throws BadResponsePayloadFieldExceptionInterface
      */
     public function getAccessToken(string $clientId, bool $forceNew = false): AccessTokenInterface;

@@ -87,10 +87,13 @@ final class ClientCredentialsTokenManager implements ClientCredentialsTokenManag
             return null;
         }
 
-        if ($ttl <= time()) {
+        $now = time();
+        if ($ttl <= $now) {
             return null;
         }
 
-        return new AccessToken($value, $ttl);
+        // $ttl is the absolute expiry epoch stored at fetch time; AccessToken
+        // expects a relative lifetime, so return the seconds still remaining.
+        return new AccessToken($value, $ttl - $now);
     }
 }
