@@ -114,8 +114,10 @@ final class ClientCredentialsTokenManagerTest extends TestCase
 
         self::assertSame(AccessTokenType::BEARER, $actual->getTokenType());
         self::assertNull($actual->getRefreshToken());
-        // @todo Assumes the test can run within 42 seconds, ideally need to mock time()
-        self::assertSame($actual->getExpiresIn(), $time + 42);
+        // getTtl() returns an absolute expiry epoch; getExpiresIn() is the
+        // relative lifetime remaining, so it is at most the original 42 seconds.
+        self::assertGreaterThan(0, $actual->getExpiresIn());
+        self::assertLessThanOrEqual(42, $actual->getExpiresIn());
         self::assertSame('test-existing-access-token-value', $actual->getAccessToken());
     }
 

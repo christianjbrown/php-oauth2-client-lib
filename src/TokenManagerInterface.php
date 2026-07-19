@@ -7,6 +7,7 @@ namespace ChristianBrown\OAuth2Client;
 interface TokenManagerInterface
 {
     public const string BASIC_AUTH_VALUE_SPRINTF = 'Basic %s';
+    public const string ERROR_INVALID_GRANT = 'invalid_grant';
     public const string HEADER_KEY_AUTHORIZATION = 'Authorization';
     public const string HEADER_KEY_CONTENT_TYPE = 'Content-Type';
     public const string HEADER_VALUE_CONTENT_TYPE_FORM = 'application/x-www-form-urlencoded';
@@ -14,4 +15,5 @@ interface TokenManagerInterface
     public const string REQUEST_KEY_GRANT_TYPE = 'grant_type';
     public const string REQUEST_KEY_REFRESH_TOKEN = 'refresh_token';
     public const string REQUEST_KEY_SCOPE = 'scope';
+    public const string RESPONSE_KEY_ERROR = 'error';
 }

@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace ChristianBrown\OAuth2Client\Tests;
 
 use ChristianBrown\ApiClient\Exception\ExceptionInterface;
+use ChristianBrown\ApiClient\Exception\Response\ResponseExceptionInterface;
 use ChristianBrown\ApiClient\JsonApiRequestSenderInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
 use ChristianBrown\OAuth2Client\Lock\LockInterface;
 use ChristianBrown\OAuth2Client\Model\AccessToken;
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
 use ChristianBrown\OAuth2Client\Model\AccessTokenType;
+use ChristianBrown\OAuth2Client\Model\Exception\InvalidGrantException;
+use ChristianBrown\OAuth2Client\Model\Exception\InvalidGrantExceptionInterface;
 use ChristianBrown\OAuth2Client\Model\Exception\RequestException;
 use ChristianBrown\OAuth2Client\Model\Exception\RequestExceptionInterface;
 use ChristianBrown\OAuth2Client\Model\GrantType;
@@ -21,6 +24,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamInterface;
 
 use function base64_encode;
 use function sprintf;
@@ -28,6 +33,7 @@ use function time;
 
 #[CoversClass(AccessToken::class)]
 #[CoversClass(RequestException::class)]
+#[CoversClass(InvalidGrantException::class)]
 #[CoversClass(RefreshTokenManager::class)]
 final class RefreshTokenManagerTest extends TestCase
 {
@@ -135,8 +141,10 @@ final class RefreshTokenManagerTest extends TestCase
 
         self::assertSame(AccessTokenType::BEARER, $actual->getTokenType());
         self::assertNull($actual->getRefreshToken());
-        // @todo Assumes the test can run within 42 seconds, ideally need to mock time()
-        self::assertSame($actual->getExpiresIn(), $time + 42);
+        // getTtl() returns an absolute expiry epoch; getExpiresIn() is the
+        // relative lifetime remaining, so it is at most the original 42 seconds.
+        self::assertGreaterThan(0, $actual->getExpiresIn());
+        self::assertLessThanOrEqual(42, $actual->getExpiresIn());
         self::assertSame('test-existing-access-token-value', $actual->getAccessToken());
     }
 
@@ -193,6 +201,91 @@ final class RefreshTokenManagerTest extends TestCase
             $manager->getAccessToken(self::TEST_CLIENT_ID, $forceNew);
         } catch (RequestExceptionInterface $e) {
             // We don't want to use expectException*() here because we want to assert the fields passed to it
+            $exceptionThrown = true;
+            self::assertSame($apiRequestException, $e->getRequestException());
+        }
+        self::assertTrue($exceptionThrown);
+    }
+
+    /**
+     * A non-successful response that is not an `invalid_grant` is surfaced as a
+     * plain RequestException and must NOT clear the stored refresh token.
+     *
+     * @throws Exception
+     */
+    #[TestWith(['not-json'])]
+    #[TestWith(['{"foo":"bar"}'])]
+    #[TestWith(['{"error":"invalid_client"}'])]
+    public function testGetAccessTokenNonInvalidGrantResponseThrowsRequestException(string $responseBody): void
+    {
+        $apiRequestException = $this->createResponseException($responseBody);
+
+        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender->expects(self::once())
+            ->method('postForm')
+            ->willThrowException($apiRequestException);
+
+        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer->expects(self::never())
+            ->method('transform');
+
+        $refreshTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
+        $refreshTokenKeyValueStore->method('getValue')
+            ->willReturn('test-existing-refresh-token-value');
+        $refreshTokenKeyValueStore->expects(self::never())
+            ->method('setValue');
+
+        $accessTokenKeyValueStore = self::createStub(KeyValueStoreInterface::class);
+
+        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
+
+        $exceptionThrown = false;
+
+        try {
+            $manager->getAccessToken(self::TEST_CLIENT_ID);
+        } catch (RequestExceptionInterface $e) {
+            $exceptionThrown = true;
+            self::assertNotInstanceOf(InvalidGrantExceptionInterface::class, $e);
+            self::assertSame($apiRequestException, $e->getRequestException());
+        }
+        self::assertTrue($exceptionThrown);
+    }
+
+    /**
+     * An `invalid_grant` response means the stored refresh token is dead: it is
+     * cleared and an InvalidGrantException is thrown so the caller re-authorises.
+     *
+     * @throws Exception
+     */
+    public function testGetAccessTokenInvalidGrantClearsRefreshTokenAndThrows(): void
+    {
+        $apiRequestException = $this->createResponseException('{"error":"invalid_grant"}');
+
+        $apiRequestSender = self::createMock(JsonApiRequestSenderInterface::class);
+        $apiRequestSender->expects(self::once())
+            ->method('postForm')
+            ->willThrowException($apiRequestException);
+
+        $tokenTransformer = self::createMock(AccessTokenTransformerInterface::class);
+        $tokenTransformer->expects(self::never())
+            ->method('transform');
+
+        $refreshTokenKeyValueStore = self::createMock(KeyValueStoreInterface::class);
+        $refreshTokenKeyValueStore->method('getValue')
+            ->willReturn('test-existing-refresh-token-value');
+        $refreshTokenKeyValueStore->expects(self::once())
+            ->method('setValue')
+            ->with(null);
+
+        $accessTokenKeyValueStore = self::createStub(KeyValueStoreInterface::class);
+
+        $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url');
+
+        $exceptionThrown = false;
+
+        try {
+            $manager->getAccessToken(self::TEST_CLIENT_ID);
+        } catch (InvalidGrantExceptionInterface $e) {
             $exceptionThrown = true;
             self::assertSame($apiRequestException, $e->getRequestException());
         }
@@ -303,8 +396,10 @@ final class RefreshTokenManagerTest extends TestCase
         $actual = $manager->getAccessToken(self::TEST_CLIENT_ID, false);
 
         self::assertSame('test-refreshed-while-waiting', $actual->getAccessToken());
-        // @todo Assumes the test can run within 42 seconds, ideally need to mock time()
-        self::assertSame($time + 42, $actual->getExpiresIn());
+        // getTtl() returns an absolute expiry epoch; getExpiresIn() is the
+        // relative lifetime remaining, so it is at most the original 42 seconds.
+        self::assertGreaterThan(0, $actual->getExpiresIn());
+        self::assertLessThanOrEqual(42, $actual->getExpiresIn());
     }
 
     /**
@@ -358,5 +453,27 @@ final class RefreshTokenManagerTest extends TestCase
             self::assertSame($apiRequestException, $e->getRequestException());
         }
         self::assertTrue($exceptionThrown);
+    }
+
+    /**
+     * Build an api-client response exception whose response body is $responseBody.
+     *
+     * @throws Exception
+     */
+    private function createResponseException(string $responseBody): ResponseExceptionInterface
+    {
+        $stream = self::createStub(StreamInterface::class);
+        $stream->method('__toString')
+            ->willReturn($responseBody);
+
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getBody')
+            ->willReturn($stream);
+
+        $responseException = self::createStub(ResponseExceptionInterface::class);
+        $responseException->method('getResponse')
+            ->willReturn($response);
+
+        return $responseException;
     }
 }

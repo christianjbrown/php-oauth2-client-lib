@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace ChristianBrown\OAuth2Client;
 
 use ChristianBrown\ApiClient\Exception\ExceptionInterface;
+use ChristianBrown\ApiClient\Exception\Response\ResponseExceptionInterface;
 use ChristianBrown\ApiClient\JsonApiRequestSenderInterface;
 use ChristianBrown\KeyValueStore\KeyValueStoreInterface;
 use ChristianBrown\OAuth2Client\Model\AccessToken;
 use ChristianBrown\OAuth2Client\Model\AccessTokenInterface;
 use ChristianBrown\OAuth2Client\Model\Exception\BadResponsePayloadFieldExceptionInterface;
+use ChristianBrown\OAuth2Client\Model\Exception\InvalidGrantException;
+use ChristianBrown\OAuth2Client\Model\Exception\InvalidGrantExceptionInterface;
 use ChristianBrown\OAuth2Client\Model\Exception\RequestException;
 use ChristianBrown\OAuth2Client\Model\Exception\RequestExceptionInterface;
 use ChristianBrown\OAuth2Client\Lock\LockInterface;
@@ -18,6 +21,8 @@ use ChristianBrown\OAuth2Client\Transformer\AccessTokenTransformerInterface;
 use Throwable;
 
 use function base64_encode;
+use function is_array;
+use function json_decode;
 use function sprintf;
 use function time;
 
@@ -44,6 +49,7 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
 
     /**
      * @throws RequestExceptionInterface
+     * @throws InvalidGrantExceptionInterface
      * @throws BadResponsePayloadFieldExceptionInterface
      */
     public function getAccessToken(string $clientId, bool $forceNew = false): AccessTokenInterface
@@ -83,6 +89,7 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
      * which case its freshly stored token is returned without a new call.
      *
      * @throws RequestExceptionInterface
+     * @throws InvalidGrantExceptionInterface
      * @throws BadResponsePayloadFieldExceptionInterface
      */
     private function getCachedOrFetchedAccessToken(string $clientId, bool $forceNew): AccessTokenInterface
@@ -97,6 +104,7 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
 
     /**
      * @throws RequestExceptionInterface
+     * @throws InvalidGrantExceptionInterface
      * @throws BadResponsePayloadFieldExceptionInterface
      */
     private function fetchAndStoreAccessToken(string $clientId): AccessTokenInterface
@@ -117,7 +125,15 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
         try {
             $accessTokenData = $this->apiRequestSender->postForm($this->url, [], $headers, $bodyData);
         } catch (ExceptionInterface $e) {
-            // @todo Could probably handle 401/403 more specifically
+            if ($this->isInvalidGrant($e)) {
+                // The refresh token is dead (revoked/expired): drop it so it is
+                // not retried forever, and signal that a fresh authorisation is
+                // required rather than a transient request failure.
+                $this->refreshTokenKeyValueStore->setValue(null);
+
+                throw new InvalidGrantException($e);
+            }
+
             throw new RequestException($e);
         }
 
@@ -127,6 +143,24 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
         $this->accessTokenKeyValueStore->setValue($accessToken->getAccessToken(), $time + $accessToken->getExpiresIn());
 
         return $accessToken;
+    }
+
+    private function isInvalidGrant(ExceptionInterface $e): bool
+    {
+        if (!$e instanceof ResponseExceptionInterface) {
+            return false;
+        }
+
+        $decoded = json_decode((string) $e->getResponse()->getBody(), true);
+        if (!is_array($decoded)) {
+            return false;
+        }
+
+        if (!isset($decoded[self::RESPONSE_KEY_ERROR])) {
+            return false;
+        }
+
+        return self::ERROR_INVALID_GRANT === $decoded[self::RESPONSE_KEY_ERROR];
     }
 
     private function getCachedAccessToken(bool $forceNew): ?AccessTokenInterface
@@ -145,10 +179,13 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
             return null;
         }
 
-        if ($ttl <= time()) {
+        $now = time();
+        if ($ttl <= $now) {
             return null;
         }
 
-        return new AccessToken($value, $ttl);
+        // $ttl is the absolute expiry epoch stored at fetch time; AccessToken
+        // expects a relative lifetime, so return the seconds still remaining.
+        return new AccessToken($value, $ttl - $now);
     }
 }
