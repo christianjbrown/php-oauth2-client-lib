@@ -25,10 +25,10 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\StreamInterface;
 
 use function base64_encode;
+use function is_array;
+use function json_decode;
 use function sprintf;
 use function time;
 
@@ -463,17 +463,11 @@ final class RefreshTokenManagerTest extends TestCase
      */
     private function createResponseException(string $responseBody): ResponseExceptionInterface
     {
-        $stream = self::createStub(StreamInterface::class);
-        $stream->method('__toString')
-            ->willReturn($responseBody);
-
-        $response = self::createStub(ResponseInterface::class);
-        $response->method('getBody')
-            ->willReturn($stream);
+        $decoded = json_decode($responseBody, true);
 
         $responseException = self::createStub(ResponseExceptionInterface::class);
-        $responseException->method('getResponse')
-            ->willReturn($response);
+        $responseException->method('getDecodedBody')
+            ->willReturn(is_array($decoded) ? $decoded : null);
 
         return $responseException;
     }
