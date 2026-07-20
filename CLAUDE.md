@@ -17,8 +17,9 @@ and a cloud function, so **the public API must not change** (class/interface nam
 
 Binaries install into `bin/` (Composer `bin-dir`), not `vendor/bin/`. Both `bin/` and `vendor/` are
 gitignored and Composer-installed, so run `composer install` first. The runtime deps and the style
-tooling (private `christianjbrown/php-code-quality-scripts` — php-cs-fixer + PHP_CodeSniffer, **Symfony2
-coding standard**) are private `dev-main` GitHub packages; installing them needs SSH/`COMPOSER_AUTH`
+tooling (private `christianjbrown/php-code-quality-scripts` — php-cs-fixer (`@PhpCsFixer`/`@Symfony`)
+for formatting + PHP_CodeSniffer 4 with the **`ChristianBrown` coding standard** (slevomat sniffs plus
+PSR/PEAR/Squiz/Generic) for linting) are private `dev-main` GitHub packages; installing them needs SSH/`COMPOSER_AUTH`
 access to those repos.
 
 | Task | Command |
