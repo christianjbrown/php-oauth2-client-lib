@@ -52,7 +52,7 @@ final class RefreshTokenManagerTest extends TestCase
     #[TestWith([true, null, null, self::TEST_CLIENT_SECRET])]
     public function testGetAccessToken(bool $forceNew, ?string $existingTokenValue = null, ?int $existingTokenTtl = null, ?string $clientSecret = null): void
     {
-        $time = time();
+        $expiresIn = 42;
         $headers = [TokenManagerInterface::HEADER_KEY_CONTENT_TYPE => TokenManagerInterface::HEADER_VALUE_CONTENT_TYPE_FORM];
         $bodyData = [
             TokenManagerInterface::REQUEST_KEY_GRANT_TYPE => GrantType::REFRESH_TOKEN->value,
@@ -75,7 +75,7 @@ final class RefreshTokenManagerTest extends TestCase
         $accessToken->method('getAccessToken')
             ->willReturn('test-new-access-token');
         $accessToken->method('getExpiresIn')
-            ->willReturn(42);
+            ->willReturn($expiresIn);
         $accessToken->method('getRefreshToken')
             ->willReturn('test-new-refresh-token');
 
@@ -92,20 +92,34 @@ final class RefreshTokenManagerTest extends TestCase
             ->method('setValue')
             ->with('test-new-refresh-token');
 
+        $capturedTtl = 0;
+
         $accessTokenKeyValueStore = self::createMock(TtlAwareKeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn($existingTokenValue);
         $accessTokenKeyValueStore->method('getTtl')
             ->willReturn($existingTokenTtl);
+        // The manager reads time() itself when computing the absolute expiry, so
+        // capture the stored TTL and assert it against the [before, after] window
+        // bracketing the call below — an exact match would flake when a second
+        // ticks over mid-test.
         $accessTokenKeyValueStore->expects(self::once())
             ->method('setValue')
-            // @todo Assumes the test can run in the same second.., need to mock time()
-            ->with('test-new-access-token', $time + 42);
+            ->with('test-new-access-token', self::callback(static function (int $ttl) use (&$capturedTtl): bool {
+                $capturedTtl = $ttl;
+
+                return true;
+            }));
 
         $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url', $clientSecret);
+
+        $before = time();
         $actual = $manager->getAccessToken(self::TEST_CLIENT_ID, $forceNew);
+        $after = time();
 
         self::assertSame($accessToken, $actual);
+        self::assertGreaterThanOrEqual($before + $expiresIn, $capturedTtl);
+        self::assertLessThanOrEqual($after + $expiresIn, $capturedTtl);
     }
 
     /**
@@ -301,7 +315,7 @@ final class RefreshTokenManagerTest extends TestCase
      */
     public function testGetAccessTokenWithLockRefreshesUnderLock(): void
     {
-        $time = time();
+        $expiresIn = 42;
         $headers = [TokenManagerInterface::HEADER_KEY_CONTENT_TYPE => TokenManagerInterface::HEADER_VALUE_CONTENT_TYPE_FORM];
         $bodyData = [
             TokenManagerInterface::REQUEST_KEY_GRANT_TYPE => GrantType::REFRESH_TOKEN->value,
@@ -319,7 +333,7 @@ final class RefreshTokenManagerTest extends TestCase
         $accessToken->method('getAccessToken')
             ->willReturn('test-new-access-token');
         $accessToken->method('getExpiresIn')
-            ->willReturn(42);
+            ->willReturn($expiresIn);
         $accessToken->method('getRefreshToken')
             ->willReturn('test-new-refresh-token');
 
@@ -336,12 +350,22 @@ final class RefreshTokenManagerTest extends TestCase
             ->method('setValue')
             ->with('test-new-refresh-token');
 
+        $capturedTtl = 0;
+
         $accessTokenKeyValueStore = self::createMock(TtlAwareKeyValueStoreInterface::class);
         $accessTokenKeyValueStore->method('getValue')
             ->willReturn(null);
+        // The manager reads time() itself when computing the absolute expiry, so
+        // capture the stored TTL and assert it against the [before, after] window
+        // bracketing the call below — an exact match would flake when a second
+        // ticks over mid-test.
         $accessTokenKeyValueStore->expects(self::once())
             ->method('setValue')
-            ->with('test-new-access-token', $time + 42);
+            ->with('test-new-access-token', self::callback(static function (int $ttl) use (&$capturedTtl): bool {
+                $capturedTtl = $ttl;
+
+                return true;
+            }));
 
         $lock = self::createMock(LockInterface::class);
         $lock->expects(self::once())
@@ -350,9 +374,14 @@ final class RefreshTokenManagerTest extends TestCase
             ->method('release');
 
         $manager = new RefreshTokenManager($apiRequestSender, $accessTokenKeyValueStore, $refreshTokenKeyValueStore, $tokenTransformer, 'test-url', null, $lock);
+
+        $before = time();
         $actual = $manager->getAccessToken(self::TEST_CLIENT_ID, false);
+        $after = time();
 
         self::assertSame($accessToken, $actual);
+        self::assertGreaterThanOrEqual($before + $expiresIn, $capturedTtl);
+        self::assertLessThanOrEqual($after + $expiresIn, $capturedTtl);
     }
 
     /**
