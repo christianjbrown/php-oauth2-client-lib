@@ -12,7 +12,7 @@ use ChristianBrown\OAuth2Client\Model\Exception\BadResponsePayloadFieldException
 
 use function is_int;
 use function is_string;
-use function strtolower;
+use function mb_strtolower;
 use function ucfirst;
 
 final class AccessTokenTransformer implements AccessTokenTransformerInterface
@@ -104,7 +104,7 @@ final class AccessTokenTransformer implements AccessTokenTransformerInterface
 
         // RFC 6749 section 7.1 defines token_type as case-insensitive; providers
         // such as SmartThings return "bearer" rather than the canonical "Bearer".
-        $tokenType = AccessTokenType::tryFrom(ucfirst(strtolower($data[self::KEY_TOKEN_TYPE])));
+        $tokenType = AccessTokenType::tryFrom(ucfirst(mb_strtolower($data[self::KEY_TOKEN_TYPE])));
         if (null === $tokenType) {
             throw new BadResponsePayloadFieldException(self::KEY_TOKEN_TYPE, $data);
         }
