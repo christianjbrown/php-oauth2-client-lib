@@ -73,6 +73,5 @@
             "type": "github",
             "url": "git@github.com:christianjbrown/php-code-quality-scripts.git"
         }
-    ],
-    "minimum-stability": "dev"
+    ]
 }
