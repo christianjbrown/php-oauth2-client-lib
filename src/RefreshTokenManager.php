@@ -22,8 +22,6 @@ use ChristianBrown\OAuth2Client\Transformer\AccessTokenTransformerInterface;
 use Throwable;
 
 use function base64_encode;
-use function is_array;
-use function json_decode;
 use function sprintf;
 use function time;
 
@@ -178,8 +176,8 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
             return false;
         }
 
-        $decoded = json_decode((string) $e->getResponse()->getBody(), true);
-        if (!is_array($decoded)) {
+        $decoded = $e->getDecodedBody();
+        if (null === $decoded) {
             return false;
         }
 
