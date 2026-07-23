@@ -25,11 +25,11 @@ final class AccessTokenTransformer implements AccessTokenTransformerInterface
     public function transform(array $data): AccessTokenInterface
     {
         return new AccessToken(
-            $this->extractRequiredString($data, self::KEY_ACCESS_TOKEN),
-            $this->extractExpiresIn($data),
-            $this->extractOptionalString($data, self::KEY_REFRESH_TOKEN),
-            $this->extractOptionalString($data, self::KEY_SCOPE),
-            $this->extractTokenType($data),
+            self::extractRequiredString($data, self::KEY_ACCESS_TOKEN),
+            self::extractExpiresIn($data),
+            self::extractOptionalString($data, self::KEY_REFRESH_TOKEN),
+            self::extractOptionalString($data, self::KEY_SCOPE),
+            self::extractTokenType($data),
         );
     }
 
@@ -38,7 +38,7 @@ final class AccessTokenTransformer implements AccessTokenTransformerInterface
      *
      * @throws BadResponsePayloadFieldExceptionInterface
      */
-    private function extractExpiresIn(array $data): int
+    private static function extractExpiresIn(array $data): int
     {
         if (empty($data[self::KEY_EXPIRES_IN])) {
             throw new BadResponsePayloadFieldException(self::KEY_EXPIRES_IN, $data);
@@ -56,7 +56,7 @@ final class AccessTokenTransformer implements AccessTokenTransformerInterface
      *
      * @throws BadResponsePayloadFieldExceptionInterface
      */
-    private function extractOptionalString(array $data, string $key): ?string
+    private static function extractOptionalString(array $data, string $key): ?string
     {
         if (empty($data[$key])) {
             return null;
@@ -74,7 +74,7 @@ final class AccessTokenTransformer implements AccessTokenTransformerInterface
      *
      * @throws BadResponsePayloadFieldExceptionInterface
      */
-    private function extractRequiredString(array $data, string $key): string
+    private static function extractRequiredString(array $data, string $key): string
     {
         if (empty($data[$key])) {
             throw new BadResponsePayloadFieldException($key, $data);
@@ -92,7 +92,7 @@ final class AccessTokenTransformer implements AccessTokenTransformerInterface
      *
      * @throws BadResponsePayloadFieldExceptionInterface
      */
-    private function extractTokenType(array $data): AccessTokenType
+    private static function extractTokenType(array $data): AccessTokenType
     {
         if (empty($data[self::KEY_TOKEN_TYPE])) {
             throw new BadResponsePayloadFieldException(self::KEY_TOKEN_TYPE, $data);

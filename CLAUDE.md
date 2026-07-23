@@ -96,6 +96,9 @@ caller hits the endpoint.
 - Dependencies are constructor-injected and typed against interfaces
   (`JsonApiRequestSenderInterface`, `TtlAwareKeyValueStoreInterface` / `KeyValueStoreInterface`,
   `AccessTokenTransformerInterface`) so everything is mockable.
+- **A method that does not use `$this` must be `static`** (called via `self::`) — a stateless helper
+  is static. Enforced for private methods by the shared `RequireStaticPrivateMethodRule` PHPStan rule
+  (via `php-code-quality-scripts`' `config/phpstan.neon`); interface/override methods stay instance.
 
 ## Testing
 

@@ -1,3 +1,6 @@
+includes:
+    - vendor/christianjbrown/php-code-quality-scripts/config/phpstan.neon
+
 parameters:
     level: max
     tmpDir: .phpstan.cache
