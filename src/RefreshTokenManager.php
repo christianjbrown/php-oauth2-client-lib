@@ -105,7 +105,7 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
         try {
             $accessTokenData = $this->apiRequestSender->postForm($this->url, [], $headers, $bodyData);
         } catch (ExceptionInterface $e) {
-            if ($this->isInvalidGrant($e)) {
+            if (self::isInvalidGrant($e)) {
                 // The refresh token is dead (revoked/expired): drop it so it is
                 // not retried forever, and signal that a fresh authorisation is
                 // required rather than a transient request failure.
@@ -170,7 +170,7 @@ final class RefreshTokenManager implements RefreshTokenManagerInterface
         return $this->fetchAndStoreAccessToken($clientId);
     }
 
-    private function isInvalidGrant(ExceptionInterface $e): bool
+    private static function isInvalidGrant(ExceptionInterface $e): bool
     {
         if (!$e instanceof ResponseExceptionInterface) {
             return false;
